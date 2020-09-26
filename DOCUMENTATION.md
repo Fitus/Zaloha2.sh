@@ -4,7 +4,7 @@
 Zaloha is a small and simple directory synchronizer:
 
  * Zaloha is a BASH script that uses only FIND, SORT and AWK. All you need
-   is the Zaloha.sh file. This documentation is contained in Zaloha.sh too.
+   is the Zaloha2.sh file. This documentation is contained in Zaloha2.sh too.
  * Cyber-secure: No new binary code, no new open ports, easily reviewable.
  * Two operation modes are available: Local Mode and Remote Backup Mode
  * Local Mode: Both &lt;sourceDir&gt; and &lt;backupDir&gt; are available locally
@@ -359,7 +359,7 @@ processing time and/or storage space consumption. It can be switched off by the
 ### INVOCATION
 
 <pre>
-<b>Zaloha.sh</b> <b>--sourceDir</b>=&lt;sourceDir&gt; <b>--backupDir</b>=&lt;backupDir&gt; [ other options ... ]
+<b>Zaloha2.sh</b> <b>--sourceDir</b>=&lt;sourceDir&gt; <b>--backupDir</b>=&lt;backupDir&gt; [ other options ... ]
 
 <b>--sourceDir</b>=&lt;sourceDir&gt; is mandatory. &lt;sourceDir&gt; must exist, otherwise Zaloha
     throws an error (except when the <b>--noDirChecks</b> option is given).
@@ -979,7 +979,7 @@ prepares an unexpectedly high number of removals.
 The process which invokes Zaloha in automatic regime should function as follows
 (pseudocode):
 
-  run Zaloha.sh --noExec
+  run Zaloha2.sh --noExec
   in case of failure: abort process
   perform sanity checks on prepared actions
   if ( sanity checks OK ) then

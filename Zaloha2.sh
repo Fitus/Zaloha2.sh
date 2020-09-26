@@ -385,7 +385,7 @@ processing time and/or storage space consumption. It can be switched off by the
 
 INVOCATION
 
-Zaloha.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
+Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 
 --sourceDir=<sourceDir> is mandatory. <sourceDir> must exist, otherwise Zaloha
     throws an error (except when the "--noDirChecks" option is given).
@@ -1002,7 +1002,7 @@ prepares an unexpectedly high number of removals.
 The process which invokes Zaloha in automatic regime should function as follows
 (pseudocode):
 
-  run Zaloha.sh --noExec
+  run Zaloha2.sh --noExec
   in case of failure: abort process
   perform sanity checks on prepared actions
   if ( sanity checks OK ) then
@@ -1705,7 +1705,7 @@ set -e
 set -o pipefail
 
 function error_exit {
-  echo "Zaloha.sh: ${1}" >&2
+  echo "Zaloha2.sh: ${1}" >&2
   exit 1
 }
 
@@ -1918,7 +1918,7 @@ do
     --mawk)              opt_dupli_check ${mawk} "${tmpVal}";           mawk=1 ;;
     --lTest)             opt_dupli_check ${lTest} "${tmpVal}";          lTest=1 ;;
     --help)              opt_dupli_check ${help} "${tmpVal}";           help=1 ;;
-    *) error_exit "Unknown option ${tmpVal//${CNTRLPATTERN}/${TRIPLETC}}, get help via Zaloha.sh --help" ;;
+    *) error_exit "Unknown option ${tmpVal//${CNTRLPATTERN}/${TRIPLETC}}, get help via Zaloha2.sh --help" ;;
   esac
 done
 
@@ -1982,7 +1982,7 @@ fi
 
 ###########################################################
 if [ "" == "${sourceDir}" ]; then
-  error_exit "<sourceDir> is mandatory, get help via Zaloha.sh --help"
+  error_exit "<sourceDir> is mandatory, get help via Zaloha2.sh --help"
 fi
 if [ "${sourceDir/${TRIPLET}/}" != "${sourceDir}" ]; then
   error_exit "<sourceDir> contains the directory separator triplet (${TRIPLET})"
@@ -2011,7 +2011,7 @@ fi
 
 ###########################################################
 if [ "" == "${backupDir}" ]; then
-  error_exit "<backupDir> is mandatory, get help via Zaloha.sh --help"
+  error_exit "<backupDir> is mandatory, get help via Zaloha2.sh --help"
 fi
 if [ "${backupDir/${TRIPLET}/}" != "${backupDir}" ]; then
   error_exit "<backupDir> contains the directory separator triplet (${TRIPLET})"
