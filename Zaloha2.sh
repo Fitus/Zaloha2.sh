@@ -1752,6 +1752,16 @@ function stop_progress {
   fi
 }
 
+function progress_scp_meta {
+  if [ ${noProgress} -eq 0 ]; then
+    if [ '>' == "${1}" ]; then
+      echo "${DASH20}${1}"
+    else
+      echo "${1}${DASH20}"
+    fi
+  fi
+}
+
 function files_not_prepared {
   for file in "${@}"
   do
@@ -1796,6 +1806,8 @@ TRIPLET='///'        # escape sequence, leading field, terminator field
 FSTAB=$'\t'
 TERMNORM=$'\033''[0m'
 TERMBLUE=$'\033''[94m'
+printf -v BLANKS20 '%20s' ' '
+DASH20="${BLANKS20// /-}"
 printf -v BLANKS60 '%60s' ' '
 DOTS60="${BLANKS60// /.}"
 
@@ -1857,6 +1869,7 @@ noR840Hdr=0
 noR850Hdr=0
 noR860Hdr=0
 noProgress=0
+scpQuiet=
 color=0
 mawk=0
 lTest=0
@@ -1913,7 +1926,7 @@ do
     --noR840Hdr)         opt_dupli_check ${noR840Hdr} "${tmpVal}";      noR840Hdr=1 ;;
     --noR850Hdr)         opt_dupli_check ${noR850Hdr} "${tmpVal}";      noR850Hdr=1 ;;
     --noR860Hdr)         opt_dupli_check ${noR860Hdr} "${tmpVal}";      noR860Hdr=1 ;;
-    --noProgress)        opt_dupli_check ${noProgress} "${tmpVal}";     noProgress=1 ;;
+    --noProgress)        opt_dupli_check ${noProgress} "${tmpVal}";     noProgress=1;  scpQuiet='-q' ;;
     --color)             opt_dupli_check ${color} "${tmpVal}";          color=1 ;;
     --mawk)              opt_dupli_check ${mawk} "${tmpVal}";           mawk=1 ;;
     --lTest)             opt_dupli_check ${lTest} "${tmpVal}";          lTest=1 ;;
@@ -2040,8 +2053,11 @@ else
 fi
 
 ###########################################################
-if [ ${remoteBackup} -eq 1 ] && [ "" == "${backupUserHost}" ]; then
-  error_exit "<backupUserHost> is mandatory if --backupUserHost option is given"
+if [ ${remoteBackup} -eq 1 ]; then
+  if [ "" == "${backupUserHost}" ]; then
+    error_exit "<backupUserHost> is mandatory if --backupUserHost option is given"
+  fi
+  backupDirTerm="${backupUserHost}:${backupDirTerm}"
 fi
 backupUserHostAwk="${backupUserHost//${BSLASHPATTERN}/${TRIPLETB}}"
 scpOptionsAwk="${scpOptions//${BSLASHPATTERN}/${TRIPLETB}}"
@@ -2276,6 +2292,7 @@ f860RemoteScp="${metaDirScp}${f860Base}"
 f999RemoteScp="${metaDirScp}${f999Base}"
 
 unset copyToMetaRemote
+copyFromMetaRemote=
 removeFromMetaRemote=
 
 ###########################################################
@@ -2606,6 +2623,8 @@ ${awk} -f "${f106}"                            \
        -v outFile="${metaDirAwk}${f300Base}"   \
        -v noProgress=${noProgress}             > "${f200}"
 
+copyToMetaRemote+=( "${f200}" )
+
 ${awk} -f "${f106}"                            \
        -v sourceBackup="S"                     \
        -v startPoint="${sourceDirAwk}"         \
@@ -2626,21 +2645,29 @@ ${awk} -f "${f106}"                            \
        -v outFile="${metaDirAwk}${f320Base}"   \
        -v noProgress=${noProgress}             > "${f220}"
 
+copyToMetaRemote+=( "${f220}" )
+
 stop_progress
+
+if [ ${remoteBackup} -eq 1 ]; then
+
+  progress_scp_meta '>'
+
+  scp -p ${scpQuiet} ${scpOptions} "${copyToMetaRemote[@]}" "${backupUserHost}:${metaDirScp}"
+
+  progress_scp_meta '>'
+
+  unset copyToMetaRemote
+
+fi
 
 if [ ${noLastRun} -eq 0 ]; then
 
   if [ ${remoteBackup} -eq 1 ]; then
 
-    copyToMetaRemote+=( "${f200}" )
-
-    scp -p -q ${scpOptions} "${copyToMetaRemote[@]}" "${backupUserHost}:${metaDirScp}"
-
-    unset copyToMetaRemote
-
     ssh ${sshOptions} "${backupUserHost}" "bash ${f200RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    scp -p -q ${scpOptions} "${backupUserHost}:${f300RemoteScp}" "${metaDirLocal}"
+    copyFromMetaRemote+="${f300RemoteScp} "
 
   else
 
@@ -2678,15 +2705,9 @@ if [ ${noFindBackup} -eq 0 ]; then
 
   if [ ${remoteBackup} -eq 1 ]; then
 
-    copyToMetaRemote+=( "${f220}" )
-
-    scp -p -q ${scpOptions} "${copyToMetaRemote[@]}" "${backupUserHost}:${metaDirScp}"
-
-    unset copyToMetaRemote
-
     ssh ${sshOptions} "${backupUserHost}" "bash ${f220RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    scp -p -q ${scpOptions} "${backupUserHost}:${f320RemoteScp}" "${metaDirLocal}"
+    copyFromMetaRemote+="${f320RemoteScp} "
 
   else
 
@@ -2703,6 +2724,16 @@ else
   if [ ! "${f320}" -nt "${f999}" ]; then
     error_exit "The externally supplied CSV metadata file 320 is not newer than the last run of Zaloha"
   fi
+
+fi
+
+if [ "" != "${copyFromMetaRemote}" ]; then
+
+  progress_scp_meta '<'
+
+  scp -p ${scpQuiet} ${scpOptions} "${backupUserHost}:${copyFromMetaRemote}" "${metaDirLocal}"
+
+  progress_scp_meta '<'
 
 fi
 
@@ -4431,13 +4462,13 @@ fi
 
 if [ ${remoteBackup} -eq 1 ]; then
 
-  start_progress "Copying to remote Zaloha metadata directory"
+  progress_scp_meta '>'
 
-  scp -p -q ${scpOptions} "${copyToMetaRemote[@]}" "${backupUserHost}:${metaDirScp}"
+  scp -p ${scpQuiet} ${scpOptions} "${copyToMetaRemote[@]}" "${backupUserHost}:${metaDirScp}"
 
   ssh ${sshOptions} "${backupUserHost}" "rm -f ${removeFromMetaRemote}"
 
-  stop_progress
+  progress_scp_meta '>'
 
 fi
 
