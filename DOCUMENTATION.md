@@ -559,11 +559,17 @@ processing time and/or storage space consumption. It can be switched off by the
                     and use externally supplied CSV metadata file 320 instead
    (Explained in the Advanced Use of Zaloha section below).
 
-<b>--noExec1Hdr</b>    ... do not write header to the shellscript for Exec1 (file 610)
-<b>--noExec2Hdr</b>    ... do not write header to the shellscript for Exec2 (file 620)
-<b>--noExec3Hdr</b>    ... do not write header to the shellscript for Exec3 (file 630)
-<b>--noExec4Hdr</b>    ... do not write header to the shellscript for Exec4 (file 640)
-<b>--noExec5Hdr</b>    ... do not write header to the shellscript for Exec5 (file 650)
+<b>--no610Hdr</b>    ... do not write header to the shellscript 610 for Exec1
+<b>--no621Hdr</b>    ... do not write header to the shellscript 621 for Exec2
+<b>--no622Hdr</b>    ... do not write header to the shellscript 622 for Exec2
+<b>--no623Hdr</b>    ... do not write header to the shellscript 623 for Exec2
+<b>--no631Hdr</b>    ... do not write header to the shellscript 631 for Exec3
+<b>--no632Hdr</b>    ... do not write header to the shellscript 632 for Exec3
+<b>--no633Hdr</b>    ... do not write header to the shellscript 633 for Exec3
+<b>--no640Hdr</b>    ... do not write header to the shellscript 640 for Exec4
+<b>--no651Hdr</b>    ... do not write header to the shellscript 651 for Exec5
+<b>--no652Hdr</b>    ... do not write header to the shellscript 652 for Exec5
+<b>--no653Hdr</b>    ... do not write header to the shellscript 653 for Exec5
    These options can be used only together with the <b>--noExec</b> option.
    (Explained in the Advanced Use of Zaloha section below).
 
@@ -983,14 +989,14 @@ The process which invokes Zaloha in automatic regime should function as follows
   in case of failure: abort process
   perform sanity checks on prepared actions
   if ( sanity checks OK ) then
-    execute script 610_exec1.sh
-    execute script 620_exec2.sh
-    execute script 630_exec3.sh
-    execute script 640_exec4.sh
-    execute script 650_exec5.sh
+    execute script 610
+    execute scripts 621, 622, 623
+    execute scripts 631, 632, 633
+    execute script 640
+    execute scripts 651, 652, 653
     monitor execution (writing to stderr)
     if ( execution successful ) then
-      execute script 690_touch.sh
+      execute script 690 to touch file 999
     end if
   end if
 </pre>
@@ -1362,8 +1368,8 @@ should be much quicker.
 If &lt;sourceDir&gt; or &lt;backupDir&gt; are not available locally, the <b>--noExec</b> option
 must be used to prevent execution of the Exec1/2/3/4/5 scripts by Zaloha itself.
 
-Last set of useful options are <b>--noExec1Hdr</b> through <b>--noExec5Hdr.</b> They
-instruct Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
+Last set of useful options are <b>--no610Hdr</b> through <b>--no653Hdr.</b> They instruct
+Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
 The headers normally contain definitions used in the bodies of the scripts.
 Header-less scripts can be easily used with alternative headers that contain
 different definitions. This gives much flexibility:
@@ -1390,22 +1396,22 @@ In that case, the FIND scan of &lt;backupDir&gt; is run on the remote side in an
 SSH session. The subsequent sorts + AWK processing steps occur locally.
 The Exec1/2/3/4/5 steps are then executed as follows:
 
-Exec1 (shellscript 610) is run on the remote side "in one batch", because it
+Exec1: The shellscript 610 is run on the remote side "in one batch", because it
 contains only <b>RMDIR</b> and <b>REMOVE</b> operations to be executed on &lt;backupDir&gt;.
 
-Exec2 (originally shellscript 620) is split into three shellscripts 621, 622 and
-623. Shellscripts 621 and 623 contain pre-copy and post-copy actions to be run
-on the remote side "in one batch". The shellscript 622 contains the individual
-SCP commands to be executed locally.
+Exec2: The shellscript 621 contains pre-copy actions and is run on the remote
+side "in one batch". The shellscript 622 contains the individual SCP commands
+to be executed locally. The shellscript 623 contains post-copy actions and
+is run on the remote side "in one batch"
 
-Exec3 (shellscript 630) is run locally. Instead of CP commands, it contains
-SCP commands.
+Exec3: All three shellscripts 631, 632 and 633 are executed locally. The script
+632 contains SCP commands instead of CP commands.
 
 Exec4 (shellscript 640): same as Exec1
 
-Exec5 (shellscript 650): same as Exec2
+Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
-Note: running multiple operations on the remote side via SSH "in one batch" has
+Note: Running multiple operations on the remote side via SSH "in one batch" has
 positive performance effects on networks with high latency, compared with
 running individual commands via SSH individually (which would require a network
 round-trip for each individual command).
@@ -1493,25 +1499,18 @@ running the processes in parallel will speed up the process significantly.
 Zaloha provides support for parallel operations of up to 8 parallel processes
 (constant MAXPARALLEL). How to utilize this support:
 
-Let's take the Exec2 script as an example (file 620): make 1+8=9 copies of the
-Exec2 script. In the header of the first copy, keep only MKDIR, CHOWN_DIR,
-CHGRP_DIR and CHMOD_DIR assigned to real commands, and assign all other
-"command variables" to the empty command (shell builtin ":"). This first copy
-will hence prepare only the directories and must run first. In the next copy,
-keep only CP1, TOUCH1, UNLINK1, CHOWN1, CHGRP1 and CHMOD1 assigned to real
-commands. In the over-next copy, keep only CP2, TOUCH2, UNLINK2, CHOWN2, CHGRP2
-and CHMOD2 assigned to real commands, and so on in the other copies. Each of
-these remaining 8 copies will hence process only its own portion of files, so
-they can be run in parallel.
+Let's take the script 622_exec2_copy.sh as an example: Make 8 copies of the
+script. In the header of the first copy, keep only CP1, TOUCH1 (or SCP1)
+assigned to real commands, and assign all other "command variables" to the empty
+command (shell builtin ":"). Adjust the other copies accordingly. This way,
+each of the 8 copies will process only its own portion of files, so they can be
+run in parallel.
 
 These manipulations should, of course, be automated by a wrapper script: The
-wrapper script should invoke Zaloha with the <b>--noExec</b> and <b>--noExec2Hdr</b>
-options, also Zaloha prepares the 620 script without header (i.e. body only).
-The wrapper script should prepare the 1+8 different headers and use them
-with the header-less 620 script.
-
-Exec1 and Exec4: use the same recipe, except that the script which removes
-the directories must run last, of course, not first.
+wrapper script should invoke Zaloha with the <b>--noExec</b> and <b>--no622Hdr</b>
+options, also Zaloha prepares the 622 script without header (i.e. body only).
+The wrapper script should prepare the 8 different headers and use them
+with the header-less 622 script (of which only one copy is needed then).
 </pre>
 
 

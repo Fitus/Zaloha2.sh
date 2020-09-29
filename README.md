@@ -77,20 +77,25 @@ Zaloha.sh | Zaloha2.sh
 Option **--metaDir** | In Remote Backup Mode: allows to place the Zaloha metadata directory on the remote backup host to a different location than the default.
 &nbsp; | New option **--metaDirTemp**: In the Remote Backup Mode, Zaloha needs a local temporary Metadata directory too. This option allows to place it to a different location than the default.
 Shellscript 610 | In Remote Backup Mode: executed on the remote side
-Shellscript 620 | In Remote Backup Mode: split to 621 (pre-copy on the remote side), 622 (SCP commands locally), 623 (post-copy on the remote side)
-Shellscript 630 | In Remote Backup Mode: contains SCP commands instead of CP commands
+Shellscript 620 | Split to 621 (pre-copy), 622 (copy), 623 (post-copy). In Remote Backup Mode: 621 and 623 executed on the remote side, 622 contains SCP commands instead of CP commands
+Shellscript 630 | Split to 631 (pre-copy), 632 (copy), 633 (post-copy). In Remote Backup Mode: 632 contains SCP commands instead of CP commands
 Shellscript 640 | In Remote Backup Mode: executed on the remote side
-Shellscript 650 | In Remote Backup Mode: split to 651 (pre-copy on the remote side), 652 (SCP commands locally), 653 (post-copy on the remote side)
+Shellscript 650 | Split to 651 (pre-copy), 652 (copy), 653 (post-copy). In Remote Backup Mode: 651 and 653 executed on the remote side, 652 contains SCP commands instead of CP commands
 Restore script 810 | In Remote Backup Mode: contains SCP commands instead of CP commands
 &nbsp; | New option **--sha256** for comparing the contents of files via SHA-256 hashes
 CSV data model of 16 columns | Extended to 17 columns to accommodate the SHA-256 hashes in new separate column 13 (original columns 13+14+15+16 shifted to 14+15+16+17)
 &nbsp; | New check for falsely detected hardlinks: SHA-256 hash differs
 Option **--hLinks** | Renamed to **--detectHLinksS** (more descriptive option name)
 Option **--touch** | Renamed to **--extraTouch** (more descriptive option name)
+Option **--noExec1Hdr** | Renamed to **--no610Hdr**
+Option **--noExec2Hdr** | Replaced by fine-grained options **--no621Hdr**, **--no622Hdr** and **--no623Hdr**
+Option **--noExec3Hdr** | Replaced by fine-grained options **--no631Hdr**, **--no632Hdr** and **--no633Hdr**
+Option **--noExec4Hdr** | Renamed to **--no640Hdr**
+Option **--noExec5Hdr** | Replaced by fine-grained options **--no651Hdr**, **--no652Hdr** and **--no653Hdr**
 &nbsp; | New Sanity Check for column 6 not alphanumeric
 &nbsp; | More stringent directories hierarchy check
 &nbsp; | Minor code improvements and optimizations
-Code size 76 kB | Code size 96 kB
+Code size 76 kB | Code size 98 kB
 Docu size 78 kB | Docu size 88 kB
 
 ## License

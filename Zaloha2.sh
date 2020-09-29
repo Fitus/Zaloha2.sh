@@ -585,11 +585,17 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     and use externally supplied CSV metadata file 320 instead
    (Explained in the Advanced Use of Zaloha section below).
 
---noExec1Hdr    ... do not write header to the shellscript for Exec1 (file 610)
---noExec2Hdr    ... do not write header to the shellscript for Exec2 (file 620)
---noExec3Hdr    ... do not write header to the shellscript for Exec3 (file 630)
---noExec4Hdr    ... do not write header to the shellscript for Exec4 (file 640)
---noExec5Hdr    ... do not write header to the shellscript for Exec5 (file 650)
+--no610Hdr    ... do not write header to the shellscript 610 for Exec1
+--no621Hdr    ... do not write header to the shellscript 621 for Exec2
+--no622Hdr    ... do not write header to the shellscript 622 for Exec2
+--no623Hdr    ... do not write header to the shellscript 623 for Exec2
+--no631Hdr    ... do not write header to the shellscript 631 for Exec3
+--no632Hdr    ... do not write header to the shellscript 632 for Exec3
+--no633Hdr    ... do not write header to the shellscript 633 for Exec3
+--no640Hdr    ... do not write header to the shellscript 640 for Exec4
+--no651Hdr    ... do not write header to the shellscript 651 for Exec5
+--no652Hdr    ... do not write header to the shellscript 652 for Exec5
+--no653Hdr    ... do not write header to the shellscript 653 for Exec5
    These options can be used only together with the "--noExec" option.
    (Explained in the Advanced Use of Zaloha section below).
 
@@ -1006,14 +1012,14 @@ The process which invokes Zaloha in automatic regime should function as follows
   in case of failure: abort process
   perform sanity checks on prepared actions
   if ( sanity checks OK ) then
-    execute script 610_exec1.sh
-    execute script 620_exec2.sh
-    execute script 630_exec3.sh
-    execute script 640_exec4.sh
-    execute script 650_exec5.sh
+    execute script 610
+    execute scripts 621, 622, 623
+    execute scripts 631, 632, 633
+    execute script 640
+    execute scripts 651, 652, 653
     monitor execution (writing to stderr)
     if ( execution successful ) then
-      execute script 690_touch.sh
+      execute script 690 to touch file 999
     end if
   end if
 
@@ -1381,8 +1387,8 @@ should be much quicker.
 If <sourceDir> or <backupDir> are not available locally, the "--noExec" option
 must be used to prevent execution of the Exec1/2/3/4/5 scripts by Zaloha itself.
 
-Last set of useful options are "--noExec1Hdr" through "--noExec5Hdr". They
-instruct Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
+Last set of useful options are "--no610Hdr" through "--no653Hdr". They instruct
+Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
 The headers normally contain definitions used in the bodies of the scripts.
 Header-less scripts can be easily used with alternative headers that contain
 different definitions. This gives much flexibility:
@@ -1408,22 +1414,22 @@ In that case, the FIND scan of <backupDir> is run on the remote side in an
 SSH session. The subsequent sorts + AWK processing steps occur locally.
 The Exec1/2/3/4/5 steps are then executed as follows:
 
-Exec1 (shellscript 610) is run on the remote side "in one batch", because it
+Exec1: The shellscript 610 is run on the remote side "in one batch", because it
 contains only RMDIR and REMOVE operations to be executed on <backupDir>.
 
-Exec2 (originally shellscript 620) is split into three shellscripts 621, 622 and
-623. Shellscripts 621 and 623 contain pre-copy and post-copy actions to be run
-on the remote side "in one batch". The shellscript 622 contains the individual
-SCP commands to be executed locally.
+Exec2: The shellscript 621 contains pre-copy actions and is run on the remote
+side "in one batch". The shellscript 622 contains the individual SCP commands
+to be executed locally. The shellscript 623 contains post-copy actions and
+is run on the remote side "in one batch"
 
-Exec3 (shellscript 630) is run locally. Instead of CP commands, it contains
-SCP commands.
+Exec3: All three shellscripts 631, 632 and 633 are executed locally. The script
+632 contains SCP commands instead of CP commands.
 
 Exec4 (shellscript 640): same as Exec1
 
-Exec5 (shellscript 650): same as Exec2
+Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
-Note: running multiple operations on the remote side via SSH "in one batch" has
+Note: Running multiple operations on the remote side via SSH "in one batch" has
 positive performance effects on networks with high latency, compared with
 running individual commands via SSH individually (which would require a network
 round-trip for each individual command).
@@ -1510,25 +1516,18 @@ running the processes in parallel will speed up the process significantly.
 Zaloha provides support for parallel operations of up to 8 parallel processes
 (constant MAXPARALLEL). How to utilize this support:
 
-Let's take the Exec2 script as an example (file 620): make 1+8=9 copies of the
-Exec2 script. In the header of the first copy, keep only MKDIR, CHOWN_DIR,
-CHGRP_DIR and CHMOD_DIR assigned to real commands, and assign all other
-"command variables" to the empty command (shell builtin ":"). This first copy
-will hence prepare only the directories and must run first. In the next copy,
-keep only CP1, TOUCH1, UNLINK1, CHOWN1, CHGRP1 and CHMOD1 assigned to real
-commands. In the over-next copy, keep only CP2, TOUCH2, UNLINK2, CHOWN2, CHGRP2
-and CHMOD2 assigned to real commands, and so on in the other copies. Each of
-these remaining 8 copies will hence process only its own portion of files, so
-they can be run in parallel.
+Let's take the script 622_exec2_copy.sh as an example: Make 8 copies of the
+script. In the header of the first copy, keep only CP1, TOUCH1 (or SCP1)
+assigned to real commands, and assign all other "command variables" to the empty
+command (shell builtin ":"). Adjust the other copies accordingly. This way,
+each of the 8 copies will process only its own portion of files, so they can be
+run in parallel.
 
 These manipulations should, of course, be automated by a wrapper script: The
-wrapper script should invoke Zaloha with the "--noExec" and "--noExec2Hdr"
-options, also Zaloha prepares the 620 script without header (i.e. body only).
-The wrapper script should prepare the 1+8 different headers and use them
-with the header-less 620 script.
-
-Exec1 and Exec4: use the same recipe, except that the script which removes
-the directories must run last, of course, not first.
+wrapper script should invoke Zaloha with the "--noExec" and "--no622Hdr"
+options, also Zaloha prepares the 622 script without header (i.e. body only).
+The wrapper script should prepare the 8 different headers and use them
+with the header-less 622 script (of which only one copy is needed then).
 
 ###########################################################
 
@@ -1674,17 +1673,17 @@ f540Base="540_exec4.csv"             # Exec4 actions (reverse sorted)
 f550Base="550_exec5.csv"             # Exec5 actions
 f555Base="555_byte_by_byte.csv"      # result of byte by byte comparing of files that appear identical
 
-f610Base="610_exec1.sh"              # shellscript for Exec1 (for remote backup, to be executed on remote side in one batch)
-f620Base="620_exec2.sh"              # shellscript for Exec2
-f621Base="621_exec2_pre_copy.sh"     # shellscript for Exec2 remote backup pre-copy actions (make directories and unlink files, to be executed on remote side in one batch)
-f622Base="622_exec2_copy.sh"         # shellscript for Exec2 remote backup copy actions (SCP commands to be executed locally)
-f623Base="623_exec2_post_copy.sh"    # shellscript for Exec2 remote backup post-copy actions (user+group ownerships and modes, to be executed on remote side in one batch)
-f630Base="630_exec3.sh"              # shellscript for Exec3
-f640Base="640_exec4.sh"              # shellscript for Exec4 (for remote backup, to be executed on remote side in one batch)
-f650Base="650_exec5.sh"              # shellscript for Exec5
-f651Base="651_exec5_pre_copy.sh"     # shellscript for Exec5 remote backup pre-copy actions (make directories and unlink files, to be executed on remote side in one batch)
-f652Base="652_exec5_copy.sh"         # shellscript for Exec5 remote backup copy actions (SCP commands to be executed locally)
-f653Base="653_exec5_post_copy.sh"    # shellscript for Exec5 remote backup post-copy actions (user+group ownerships and modes, to be executed on remote side in one batch)
+f610Base="610_exec1.sh"              # shellscript for Exec1 (for remote backup to be executed on remote side in one batch)
+f621Base="621_exec2_pre_copy.sh"     # shellscript for Exec2 pre-copy actions (make directories and unlink files, for remote backup to be executed on remote side in one batch)
+f622Base="622_exec2_copy.sh"         # shellscript for Exec2 copy actions (CP or SCP commands to be executed locally)
+f623Base="623_exec2_post_copy.sh"    # shellscript for Exec2 post-copy actions (user+group ownerships and modes, for remote backup to be executed on remote side in one batch)
+f631Base="631_exec3_pre_copy.sh"     # shellscript for Exec3 pre-copy actions (REV_EXISTS checks, make directories)
+f632Base="632_exec3_copy.sh"         # shellscript for Exec3 copy actions (CP or SCP commands)
+f633Base="633_exec3_post_copy.sh"    # shellscript for Exec3 post-copy actions (user+group ownerships and modes)
+f640Base="640_exec4.sh"              # shellscript for Exec4 (for remote backup to be executed on remote side in one batch)
+f651Base="651_exec5_pre_copy.sh"     # shellscript for Exec5 pre-copy actions (make directories and unlink files, for remote backup to be executed on remote side in one batch)
+f652Base="652_exec5_copy.sh"         # shellscript for Exec5 copy actions (CP or SCP commands to be executed locally)
+f653Base="653_exec5_post_copy.sh"    # shellscript for Exec5 post-copy actions (user+group ownerships and modes, for remote backup to be executed on remote side in one batch)
 f690Base="690_touch.sh"              # shellscript to touch file 999_mark_executed
 
 f700Base="700_restore.awk"           # AWK program for preparation of shellscripts for the case of restore
@@ -1856,11 +1855,17 @@ noLastRun=0
 noIdentCheck=0
 noFindSource=0
 noFindBackup=0
-noExec1Hdr=0
-noExec2Hdr=0
-noExec3Hdr=0
-noExec4Hdr=0
-noExec5Hdr=0
+no610Hdr=0
+no621Hdr=0
+no622Hdr=0
+no623Hdr=0
+no631Hdr=0
+no632Hdr=0
+no633Hdr=0
+no640Hdr=0
+no651Hdr=0
+no652Hdr=0
+no653Hdr=0
 noR800Hdr=0
 noR810Hdr=0
 noR820Hdr=0
@@ -1914,11 +1919,17 @@ do
     --noIdentCheck)      opt_dupli_check ${noIdentCheck} "${tmpVal}";   noIdentCheck=1 ;;
     --noFindSource)      opt_dupli_check ${noFindSource} "${tmpVal}";   noFindSource=1 ;;
     --noFindBackup)      opt_dupli_check ${noFindBackup} "${tmpVal}";   noFindBackup=1 ;;
-    --noExec1Hdr)        opt_dupli_check ${noExec1Hdr} "${tmpVal}";     noExec1Hdr=1 ;;
-    --noExec2Hdr)        opt_dupli_check ${noExec2Hdr} "${tmpVal}";     noExec2Hdr=1 ;;
-    --noExec3Hdr)        opt_dupli_check ${noExec3Hdr} "${tmpVal}";     noExec3Hdr=1 ;;
-    --noExec4Hdr)        opt_dupli_check ${noExec4Hdr} "${tmpVal}";     noExec4Hdr=1 ;;
-    --noExec5Hdr)        opt_dupli_check ${noExec5Hdr} "${tmpVal}";     noExec5Hdr=1 ;;
+    --no610Hdr)          opt_dupli_check ${no610Hdr} "${tmpVal}";       no610Hdr=1 ;;
+    --no621Hdr)          opt_dupli_check ${no621Hdr} "${tmpVal}";       no621Hdr=1 ;;
+    --no622Hdr)          opt_dupli_check ${no622Hdr} "${tmpVal}";       no622Hdr=1 ;;
+    --no623Hdr)          opt_dupli_check ${no623Hdr} "${tmpVal}";       no623Hdr=1 ;;
+    --no631Hdr)          opt_dupli_check ${no631Hdr} "${tmpVal}";       no631Hdr=1 ;;
+    --no632Hdr)          opt_dupli_check ${no632Hdr} "${tmpVal}";       no632Hdr=1 ;;
+    --no633Hdr)          opt_dupli_check ${no633Hdr} "${tmpVal}";       no633Hdr=1 ;;
+    --no640Hdr)          opt_dupli_check ${no640Hdr} "${tmpVal}";       no640Hdr=1 ;;
+    --no651Hdr)          opt_dupli_check ${no651Hdr} "${tmpVal}";       no651Hdr=1 ;;
+    --no652Hdr)          opt_dupli_check ${no652Hdr} "${tmpVal}";       no652Hdr=1 ;;
+    --no653Hdr)          opt_dupli_check ${no653Hdr} "${tmpVal}";       no653Hdr=1 ;;
     --noR800Hdr)         opt_dupli_check ${noR800Hdr} "${tmpVal}";      noR800Hdr=1 ;;
     --noR810Hdr)         opt_dupli_check ${noR810Hdr} "${tmpVal}";      noR810Hdr=1 ;;
     --noR820Hdr)         opt_dupli_check ${noR820Hdr} "${tmpVal}";      noR820Hdr=1 ;;
@@ -1965,20 +1976,13 @@ if [ ${revNew} -eq 1 ] && [ ${noLastRun} -eq 1 ]; then
   error_exit "Option --revNew may not be used if option --noLastRun is given"
 fi
 if [ ${noExec} -eq 0 ]; then
-  if [ ${noExec1Hdr} -eq 1 ]; then
-    error_exit "Option --noExec1Hdr can be used only together with option --noExec"
-  fi
-  if [ ${noExec2Hdr} -eq 1 ]; then
-    error_exit "Option --noExec2Hdr can be used only together with option --noExec"
-  fi
-  if [ ${noExec3Hdr} -eq 1 ]; then
-    error_exit "Option --noExec3Hdr can be used only together with option --noExec"
-  fi
-  if [ ${noExec4Hdr} -eq 1 ]; then
-    error_exit "Option --noExec4Hdr can be used only together with option --noExec"
-  fi
-  if [ ${noExec5Hdr} -eq 1 ]; then
-    error_exit "Option --noExec5Hdr can be used only together with option --noExec"
+  if [ ${no610Hdr} -eq 1 ] || \
+     [ ${no621Hdr} -eq 1 ] || [ ${no622Hdr} -eq 1 ] || [ ${no623Hdr} -eq 1 ] || \
+     [ ${no631Hdr} -eq 1 ] || [ ${no632Hdr} -eq 1 ] || [ ${no633Hdr} -eq 1 ] || \
+     [ ${no640Hdr} -eq 1 ] || \
+     [ ${no651Hdr} -eq 1 ] || [ ${no652Hdr} -eq 1 ] || [ ${no653Hdr} -eq 1 ];
+  then
+    error_exit "Options --no610Hdr through --no653Hdr can be used only together with option --noExec"
   fi
 fi
 
@@ -2045,11 +2049,11 @@ backupDirScp="${QUOTE}${backupDir//${QUOTEPATTERN}/${QUOTEESC}}${QUOTE}"
 backupDirEsc="${backupDir//${TAB}/${TRIPLETT}}"
 backupDirEsc="${backupDirEsc//${NLINE}/${TRIPLETN}}"
 if [ ${color} -eq 1 ]; then
-  backupDirTerm="${backupDirEsc//${CNTRLPATTERN}/${TERMBLUE}${TRIPLETC}${TERMNORM}}"
-  backupDirTerm="${backupDirTerm//${TRIPLETT}/${TERMBLUE}${TRIPLETT}${TERMNORM}}"
-  backupDirTerm="${backupDirTerm//${TRIPLETN}/${TERMBLUE}${TRIPLETN}${TERMNORM}}"
+  backupUserHostDirTerm="${backupDirEsc//${CNTRLPATTERN}/${TERMBLUE}${TRIPLETC}${TERMNORM}}"
+  backupUserHostDirTerm="${backupUserHostDirTerm//${TRIPLETT}/${TERMBLUE}${TRIPLETT}${TERMNORM}}"
+  backupUserHostDirTerm="${backupUserHostDirTerm//${TRIPLETN}/${TERMBLUE}${TRIPLETN}${TERMNORM}}"
 else
-  backupDirTerm="${backupDirEsc//${CNTRLPATTERN}/${TRIPLETC}}"
+  backupUserHostDirTerm="${backupDirEsc//${CNTRLPATTERN}/${TRIPLETC}}"
 fi
 
 ###########################################################
@@ -2057,7 +2061,7 @@ if [ ${remoteBackup} -eq 1 ]; then
   if [ "" == "${backupUserHost}" ]; then
     error_exit "<backupUserHost> is mandatory if --backupUserHost option is given"
   fi
-  backupDirTerm="${backupUserHost}:${backupDirTerm}"
+  backupUserHostDirTerm="${backupUserHost}:${backupUserHostDirTerm}"
 fi
 backupUserHostAwk="${backupUserHost//${BSLASHPATTERN}/${TRIPLETB}}"
 scpOptionsAwk="${scpOptions//${BSLASHPATTERN}/${TRIPLETB}}"
@@ -2221,13 +2225,13 @@ f540="${metaDirLocal}${f540Base}"
 f550="${metaDirLocal}${f550Base}"
 f555="${metaDirLocal}${f555Base}"
 f610="${metaDirLocal}${f610Base}"
-f620="${metaDirLocal}${f620Base}"
 f621="${metaDirLocal}${f621Base}"
 f622="${metaDirLocal}${f622Base}"
 f623="${metaDirLocal}${f623Base}"
-f630="${metaDirLocal}${f630Base}"
+f631="${metaDirLocal}${f631Base}"
+f632="${metaDirLocal}${f632Base}"
+f633="${metaDirLocal}${f633Base}"
 f640="${metaDirLocal}${f640Base}"
-f650="${metaDirLocal}${f650Base}"
 f651="${metaDirLocal}${f651Base}"
 f652="${metaDirLocal}${f652Base}"
 f653="${metaDirLocal}${f653Base}"
@@ -2251,6 +2255,9 @@ f550Awk="${metaDirLocalAwk}${f550Base}"
 f621Awk="${metaDirLocalAwk}${f621Base}"
 f622Awk="${metaDirLocalAwk}${f622Base}"
 f623Awk="${metaDirLocalAwk}${f623Base}"
+f631Awk="${metaDirLocalAwk}${f631Base}"
+f632Awk="${metaDirLocalAwk}${f632Base}"
+f633Awk="${metaDirLocalAwk}${f633Base}"
 f651Awk="${metaDirLocalAwk}${f651Base}"
 f652Awk="${metaDirLocalAwk}${f652Base}"
 f653Awk="${metaDirLocalAwk}${f653Base}"
@@ -2291,9 +2298,9 @@ f850RemoteScp="${metaDirScp}${f850Base}"
 f860RemoteScp="${metaDirScp}${f860Base}"
 f999RemoteScp="${metaDirScp}${f999Base}"
 
-unset copyToMetaRemote
-copyFromMetaRemote=
-removeFromMetaRemote=
+unset copyToRemoteBackup
+copyFromRemoteBackup=
+removeFromRemoteBackup=
 
 ###########################################################
 ${awk} '{ print }' << PARAMFILE > "${f000}"
@@ -2307,7 +2314,7 @@ ${TRIPLET}${FSTAB}backupDirAwk${FSTAB}${backupDirAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDirPattAwk${FSTAB}${backupDirPattAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDirScp${FSTAB}${backupDirScp}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDirEsc${FSTAB}${backupDirEsc}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}backupDirTerm${FSTAB}${backupDirTerm}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}backupUserHostDirTerm${FSTAB}${backupUserHostDirTerm}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupUserHost${FSTAB}${backupUserHost}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupUserHostAwk${FSTAB}${backupUserHostAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}remoteBackup${FSTAB}${remoteBackup}${FSTAB}${TRIPLET}
@@ -2358,11 +2365,17 @@ ${TRIPLET}${FSTAB}noLastRun${FSTAB}${noLastRun}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noIdentCheck${FSTAB}${noIdentCheck}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noFindSource${FSTAB}${noFindSource}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noFindBackup${FSTAB}${noFindBackup}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}noExec1Hdr${FSTAB}${noExec1Hdr}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}noExec2Hdr${FSTAB}${noExec2Hdr}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}noExec3Hdr${FSTAB}${noExec3Hdr}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}noExec4Hdr${FSTAB}${noExec4Hdr}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}noExec5Hdr${FSTAB}${noExec5Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no610Hdr${FSTAB}${no610Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no621Hdr${FSTAB}${no621Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no622Hdr${FSTAB}${no622Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no623Hdr${FSTAB}${no623Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no631Hdr${FSTAB}${no631Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no632Hdr${FSTAB}${no632Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no633Hdr${FSTAB}${no633Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no640Hdr${FSTAB}${no640Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no651Hdr${FSTAB}${no651Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no652Hdr${FSTAB}${no652Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}no653Hdr${FSTAB}${no653Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR800Hdr${FSTAB}${noR800Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR810Hdr${FSTAB}${noR810Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR820Hdr${FSTAB}${noR820Hdr}${FSTAB}${TRIPLET}
@@ -2381,7 +2394,7 @@ ${TRIPLET}${FSTAB}metaDirLocal${FSTAB}${metaDirLocal}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirLocalAwk${FSTAB}${metaDirLocalAwk}${FSTAB}${TRIPLET}
 PARAMFILE
 
-copyToMetaRemote+=( "${f000}" )
+copyToRemoteBackup+=( "${f000}" )
 
 ###########################################################
 ${awk} '{ print }' << 'AWKAWKPREPROC' > "${f100}"
@@ -2466,7 +2479,7 @@ BEGIN {
 }
 AWKAWKPREPROC
 
-copyToMetaRemote+=( "${f100}" )
+copyToRemoteBackup+=( "${f100}" )
 
 ${awk} -f "${f100}" << 'AWKXTRACE2TERM' > "${f102}"
 {
@@ -2607,7 +2620,7 @@ AWKPARSER
 
 if [ ${noProgress} -eq 0 ]; then
   echo
-  echo "ANALYZING ${sourceDirTerm} AND ${backupDirTerm}"
+  echo "ANALYZING ${sourceDirTerm} AND ${backupUserHostDirTerm}"
   echo "==========================================="
 fi
 
@@ -2623,7 +2636,7 @@ ${awk} -f "${f106}"                            \
        -v outFile="${metaDirAwk}${f300Base}"   \
        -v noProgress=${noProgress}             > "${f200}"
 
-copyToMetaRemote+=( "${f200}" )
+copyToRemoteBackup+=( "${f200}" )
 
 ${awk} -f "${f106}"                            \
        -v sourceBackup="S"                     \
@@ -2645,7 +2658,7 @@ ${awk} -f "${f106}"                            \
        -v outFile="${metaDirAwk}${f320Base}"   \
        -v noProgress=${noProgress}             > "${f220}"
 
-copyToMetaRemote+=( "${f220}" )
+copyToRemoteBackup+=( "${f220}" )
 
 stop_progress
 
@@ -2653,11 +2666,11 @@ if [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpQuiet} ${scpOptions} "${copyToMetaRemote[@]}" "${backupUserHost}:${metaDirScp}"
+  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
 
   progress_scp_meta '>'
 
-  unset copyToMetaRemote
+  unset copyToRemoteBackup
 
 fi
 
@@ -2667,7 +2680,7 @@ if [ ${noLastRun} -eq 0 ]; then
 
     ssh ${sshOptions} "${backupUserHost}" "bash ${f200RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    copyFromMetaRemote+="${f300RemoteScp} "
+    copyFromRemoteBackup+="${f300RemoteScp} "
 
   else
 
@@ -2707,7 +2720,7 @@ if [ ${noFindBackup} -eq 0 ]; then
 
     ssh ${sshOptions} "${backupUserHost}" "bash ${f220RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    copyFromMetaRemote+="${f320RemoteScp} "
+    copyFromRemoteBackup+="${f320RemoteScp} "
 
   else
 
@@ -2727,11 +2740,11 @@ else
 
 fi
 
-if [ "" != "${copyFromMetaRemote}" ]; then
+if [ "" != "${copyFromRemoteBackup}" ]; then
 
   progress_scp_meta '<'
 
-  scp -p ${scpQuiet} ${scpOptions} "${backupUserHost}:${copyFromMetaRemote}" "${metaDirLocal}"
+  scp -p ${scpQuiet} ${scpOptions} "${backupUserHost}:${copyFromRemoteBackup}" "${metaDirLocal}"
 
   progress_scp_meta '<'
 
@@ -3581,7 +3594,7 @@ stop_progress
 
 optim_csv_after_use "${f500}"
 
-copyToMetaRemote+=( "${f505}" )
+copyToRemoteBackup+=( "${f505}" )
 
 ###########################################################
 
@@ -3647,7 +3660,7 @@ BEGIN {
   pin = 1         # parallel index
   gsub( TRIPLETBREGEX, BSLASH, backupDir )
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
-  if ( 0 == noExecHdr ) {
+  if ( 0 == no610Hdr ) {
     BIN_BASH
     print "backupDir='" backupDir "'"
     print "RMDIR='rmdir'"
@@ -3689,12 +3702,12 @@ start_progress "Preparing shellscript for Exec1"
 ${awk} -f "${f410}"                    \
        -v backupDir="${backupDirAwk}"  \
        -v noExec=${noExec}             \
-       -v noExecHdr=${noExec1Hdr}      \
+       -v no610Hdr=${no610Hdr}         \
        "${f510}"                       > "${f610}"
 
 stop_progress
 
-copyToMetaRemote+=( "${f610}" )
+copyToRemoteBackup+=( "${f610}" )
 
 ###########################################################
 ${awk} -f "${f100}" << 'AWKEXEC2' > "${f420}"
@@ -3715,137 +3728,104 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, scpOptions )
   gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", backupDirScp )
-  if ( 1 == remoteBackup ) {
-    if ( 0 == noExecHdr ) {
-      BIN_BASH > f621
-      BIN_BASH > f622
-      BIN_BASH > f623
-      print "sourceDir='" sourceDir "'" > f622
-      print "backupDir='" backupDir "'" > f621
-      print "backupUserHostDirScp='" backupUserHost ":'" QUOTEPROT "'" backupDirScp "'" QUOTEPROT > f622
-      print "backupDir='" backupDir "'" > f623
-      print "MKDIR='mkdir'" > f621
-      if ( 0 == noUnlink ) {
-        print "UNLINK" ONE_TO_MAXPARALLEL "='rm -f'" > f621
-      }
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f622
-      if ( 1 == pUser ) {
-        print "CHOWN_DIR='chown'" > f623
-        print "CHOWN" ONE_TO_MAXPARALLEL "='chown'" > f623
-      }
-      if ( 1 == pGroup ) {
-        print "CHGRP_DIR='chgrp'" > f623
-        print "CHGRP" ONE_TO_MAXPARALLEL "='chgrp'" > f623
-      }
-      if ( 1 == pMode ) {
-        print "CHMOD_DIR='chmod'" > f623
-        print "CHMOD" ONE_TO_MAXPARALLEL "='chmod'" > f623
-      }
-      print "set -u" > f621
-      print "set -u" > f622
-      print "set -u" > f623
-      if ( 0 == noExec ) {
-        print "set -e" > f621
-        print "set -e" > f622
-        print "set -e" > f623
-        XTRACE_ON > f621
-        XTRACE_ON > f622
-        XTRACE_ON > f623
-      }
+  if ( 0 == no621Hdr ) {
+    BIN_BASH > f621
+    print "backupDir='" backupDir "'" > f621
+    print "MKDIR='mkdir'" > f621
+    if ( 1 == pUser ) {
+      print "CHOWN_DIR='chown'" > f621
     }
-    SECTION_LINE > f621
-    SECTION_LINE > f622
-    SECTION_LINE > f623
-  } else {
-    if ( 0 == noExecHdr ) {
-      BIN_BASH
-      print "sourceDir='" sourceDir "'"
-      print "backupDir='" backupDir "'"
-      print "MKDIR='mkdir'"
-      if ( 0 == noUnlink ) {
-        print "UNLINK" ONE_TO_MAXPARALLEL "='rm -f'"
-      }
-      if ( 1 == extraTouch ) {
-        print "CP" ONE_TO_MAXPARALLEL "='cp'"
-        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'"
-      } else {
-        print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'"
-      }
-      if ( 1 == pUser ) {
-        print "CHOWN_DIR='chown'"
-        print "CHOWN" ONE_TO_MAXPARALLEL "='chown'"
-      }
-      if ( 1 == pGroup ) {
-        print "CHGRP_DIR='chgrp'"
-        print "CHGRP" ONE_TO_MAXPARALLEL "='chgrp'"
-      }
-      if ( 1 == pMode ) {
-        print "CHMOD_DIR='chmod'"
-        print "CHMOD" ONE_TO_MAXPARALLEL "='chmod'"
-      }
-      print "set -u"
-      if ( 0 == noExec ) {
-        print "set -e"
-        XTRACE_ON
-      }
+    if ( 1 == pGroup ) {
+      print "CHGRP_DIR='chgrp'" > f621
     }
-    SECTION_LINE
+    if ( 1 == pMode ) {
+      print "CHMOD_DIR='chmod'" > f621
+    }
+    if ( 0 == noUnlink ) {
+      print "UNLINK" ONE_TO_MAXPARALLEL "='rm -f'" > f621
+    }
+    print "set -u" > f621
+    if ( 0 == noExec ) {
+      print "set -e" > f621
+      XTRACE_ON > f621
+    }
   }
+  if ( 0 == no622Hdr ) {
+    BIN_BASH > f622
+    print "sourceDir='" sourceDir "'" > f622
+    if ( 1 == remoteBackup ) {
+      print "backupUserHostDirScp='" backupUserHost ":'" QUOTEPROT "'" backupDirScp "'" QUOTEPROT > f622
+    } else {
+      print "backupDir='" backupDir "'" > f622
+    }
+    if ( 1 == remoteBackup ) {
+      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f622
+    } else {
+      if ( 1 == extraTouch ) {
+        print "CP" ONE_TO_MAXPARALLEL "='cp'" > f622
+        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f622
+      } else {
+        print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'" > f622
+      }
+    }
+    print "set -u" > f622
+    if ( 0 == noExec ) {
+      print "set -e" > f622
+      XTRACE_ON > f622
+    }
+  }
+  if ( 0 == no623Hdr ) {
+    BIN_BASH > f623
+    print "backupDir='" backupDir "'" > f623
+    if ( 1 == pUser ) {
+      print "CHOWN" ONE_TO_MAXPARALLEL "='chown'" > f623
+    }
+    if ( 1 == pGroup ) {
+      print "CHGRP" ONE_TO_MAXPARALLEL "='chgrp'" > f623
+    }
+    if ( 1 == pMode ) {
+      print "CHMOD" ONE_TO_MAXPARALLEL "='chmod'" > f623
+    }
+    print "set -u" > f623
+    if ( 0 == noExec ) {
+      print "set -e" > f623
+      XTRACE_ON > f623
+    }
+  }
+  SECTION_LINE > f621
+  SECTION_LINE > f622
+  SECTION_LINE > f623
 }
 function apply_attr_dir() {
-  if ( 1 == remoteBackup ) {
-    if ( 1 == pUser ) {
-      print "${CHOWN_DIR} " u " " b > f623
-    }
-    if ( 1 == pGroup ) {
-      print "${CHGRP_DIR} " g " " b > f623
-    }
-    if ( 1 == pMode ) {
-      print "${CHMOD_DIR} " m " " b > f623
-    }
-  } else {
-    if ( 1 == pUser ) {
-      print "${CHOWN_DIR} " u " " b
-    }
-    if ( 1 == pGroup ) {
-      print "${CHGRP_DIR} " g " " b
-    }
-    if ( 1 == pMode ) {
-      print "${CHMOD_DIR} " m " " b
-    }
+  if ( 1 == pUser ) {
+    print "${CHOWN_DIR} " u " " b > f621
+  }
+  if ( 1 == pGroup ) {
+    print "${CHGRP_DIR} " g " " b > f621
+  }
+  if ( 1 == pMode ) {
+    print "${CHMOD_DIR} " m " " b > f621
   }
 }
 function copy_file() {
   if ( 1 == remoteBackup ) {
     print "${SCP" pin "} " s " " bScp > f622
   } else {
-    print "${CP" pin "} " s " " b
+    print "${CP" pin "} " s " " b > f622
     if ( 1 == extraTouch ) {
-      print "${TOUCH" pin "} " s " " b
+      print "${TOUCH" pin "} " s " " b > f622
     }
   }
 }
 function apply_attr() {
-  if ( 1 == remoteBackup ) {
-    if ( 1 == pUser ) {
-      print "${CHOWN" pin "} " u " " b > f623
-    }
-    if ( 1 == pGroup ) {
-      print "${CHGRP" pin "} " g " " b > f623
-    }
-    if ( 1 == pMode ) {
-      print "${CHMOD" pin "} " m " " b > f623
-    }
-  } else {
-    if ( 1 == pUser ) {
-      print "${CHOWN" pin "} " u " " b
-    }
-    if ( 1 == pGroup ) {
-      print "${CHGRP" pin "} " g " " b
-    }
-    if ( 1 == pMode ) {
-      print "${CHMOD" pin "} " m " " b
-    }
+  if ( 1 == pUser ) {
+    print "${CHOWN" pin "} " u " " b > f623
+  }
+  if ( 1 == pGroup ) {
+    print "${CHGRP" pin "} " g " " b > f623
+  }
+  if ( 1 == pMode ) {
+    print "${CHMOD" pin "} " m " " b > f623
   }
 }
 function next_pin() {
@@ -3874,11 +3854,7 @@ function next_pin() {
   b = "\"${backupDir}\"'" pt "'"
   bScp = "\"${backupUserHostDirScp}\"" QUOTEPROT "'" ptScp "'" QUOTEPROT
   if ( $2 ~ /^MKDIR/ ) {
-    if ( 1 == remoteBackup ) {
-      print "${MKDIR} " b > f621
-    } else {
-      print "${MKDIR} " b
-    }
+    print "${MKDIR} " b > f621
     apply_attr_dir()
   } else if ( $2 ~ /^NEW/ ) {
     copy_file()
@@ -3889,35 +3865,19 @@ function next_pin() {
     apply_attr()
     next_pin()
   } else if ( $2 ~ /^unl\.UP/ ) {
-    if ( 1 == remoteBackup ) {
-      print "${UNLINK" pin "} " b > f621
-    } else {
-      print "${UNLINK" pin "} " b
-    }
+    print "${UNLINK" pin "} " b > f621
     copy_file()
     apply_attr()
     next_pin()
   } else if ( $2 ~ /^ATTR/ ) {
-    if ( 1 == remoteBackup ) {
-      if ( $2 ~ /u/ ) {
-        print "${CHOWN" pin "} " u " " b > f623
-      }
-      if ( $2 ~ /g/ ) {
-        print "${CHGRP" pin "} " g " " b > f623
-      }
-      if ( $2 ~ /m/ ) {
-        print "${CHMOD" pin "} " m " " b > f623
-      }
-    } else {
-      if ( $2 ~ /u/ ) {
-        print "${CHOWN" pin "} " u " " b
-      }
-      if ( $2 ~ /g/ ) {
-        print "${CHGRP" pin "} " g " " b
-      }
-      if ( $2 ~ /m/ ) {
-        print "${CHMOD" pin "} " m " " b
-      }
+    if ( $2 ~ /u/ ) {
+      print "${CHOWN" pin "} " u " " b > f623
+    }
+    if ( $2 ~ /g/ ) {
+      print "${CHGRP" pin "} " g " " b > f623
+    }
+    if ( $2 ~ /m/ ) {
+      print "${CHMOD" pin "} " m " " b > f623
     }
     next_pin()
   } else {
@@ -3925,16 +3885,12 @@ function next_pin() {
   }
 }
 END {
-  if ( 1 == remoteBackup ) {
-    SECTION_LINE > f621
-    SECTION_LINE > f622
-    SECTION_LINE > f623
-    close( f621 )
-    close( f622 )
-    close( f623 )
-  } else {
-    SECTION_LINE
-  }
+  SECTION_LINE > f621
+  SECTION_LINE > f622
+  SECTION_LINE > f623
+  close( f621 )
+  close( f622 )
+  close( f623 )
 }
 AWKEXEC2
 
@@ -3952,25 +3908,17 @@ ${awk} -f "${f420}"                              \
        -v pUser=${pUser}                         \
        -v pGroup=${pGroup}                       \
        -v pMode=${pMode}                         \
-       -v noExecHdr=${noExec2Hdr}                \
+       -v no621Hdr=${no621Hdr}                   \
+       -v no622Hdr=${no622Hdr}                   \
+       -v no623Hdr=${no623Hdr}                   \
        -v f621="${f621Awk}"                      \
        -v f622="${f622Awk}"                      \
        -v f623="${f623Awk}"                      \
-       "${f520}"                                 > "${f620}"
+       "${f520}"
 
 stop_progress
 
-if [ ${remoteBackup} -eq 1 ]; then
-
-  files_not_prepared "${f620}"
-
-  copyToMetaRemote+=( "${f621}" "${f623}" )
-
-else
-
-  files_not_prepared "${f621}" "${f622}" "${f623}"
-
-fi
+copyToRemoteBackup+=( "${f621}" "${f623}" )
 
 ###########################################################
 ${awk} -f "${f100}" << 'AWKEXEC3' > "${f430}"
@@ -3982,98 +3930,127 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, backupDir )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
   gsub( TRIPLETBREGEX, BSLASH, scpOptions )
+  gsub( TRIPLETBREGEX, BSLASH, f631 )
+  gsub( TRIPLETBREGEX, BSLASH, f632 )
+  gsub( TRIPLETBREGEX, BSLASH, f633 )
   backupDirScp = backupDir
   gsub( QUOTEREGEX, QUOTEESC, sourceDir )
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, scpOptions )
   gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", backupDirScp )
-  if ( 0 == noExecHdr ) {
-    BIN_BASH
-    print "sourceDir='" sourceDir "'"
-    if ( 1 == remoteBackup ) {
-      print "backupUserHostDirScp='" backupUserHost ":'" QUOTEPROT "'" backupDirScp "'" QUOTEPROT
-    } else {
-      print "backupDir='" backupDir "'"
-    }
-    print "function rev_exists_err {"
-    XTRACE_OFF
-    print "  echo \"Zaloha: Object exists in <sourceDir> (masked by <findSourceOps> ?): ${1}\" >&2"
+  if ( 0 == no631Hdr ) {
+    BIN_BASH > f631
+    print "sourceDir='" sourceDir "'" > f631
+    print "function rev_exists_err {" > f631
+    XTRACE_OFF > f631
+    print "  echo \"Zaloha: Object exists in <sourceDir> (masked by <findSourceOps> ?): ${1}\" >&2" > f631
     if ( 0 == noExec ) {
-      print "  exit 1"
+      print "  exit 1" > f631
     }
-    print "}"
-    print "TEST_DIR='['"
-    print "REV_EXISTS_ERR_DIR='rev_exists_err'"
-    print "MKDIR='mkdir'"
-    print "TEST" ONE_TO_MAXPARALLEL "='['"
-    print "REV_EXISTS_ERR" ONE_TO_MAXPARALLEL "='rev_exists_err'"
-    if ( 1 == remoteBackup ) {
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'"
-    } else {
-      if ( 1 == extraTouch ) {
-        print "CP" ONE_TO_MAXPARALLEL "='cp'"
-        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'"
-      } else {
-        print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'"
-      }
-    }
+    print "}" > f631
+    print "TEST_DIR='['" > f631
+    print "REV_EXISTS_ERR_DIR='rev_exists_err'" > f631
+    print "MKDIR='mkdir'" > f631
     if ( 1 == pRevUser ) {
-      print "CHOWN_DIR='chown'"
-      print "CHOWN" ONE_TO_MAXPARALLEL "='chown'"
+      print "CHOWN_DIR='chown'" > f631
     }
     if ( 1 == pRevGroup ) {
-      print "CHGRP_DIR='chgrp'"
-      print "CHGRP" ONE_TO_MAXPARALLEL "='chgrp'"
+      print "CHGRP_DIR='chgrp'" > f631
     }
     if ( 1 == pRevMode ) {
-      print "CHMOD_DIR='chmod'"
-      print "CHMOD" ONE_TO_MAXPARALLEL "='chmod'"
+      print "CHMOD_DIR='chmod'" > f631
     }
-    print "set -u"
+    print "TEST" ONE_TO_MAXPARALLEL "='['" > f631
+    print "REV_EXISTS_ERR" ONE_TO_MAXPARALLEL "='rev_exists_err'" > f631
+    print "set -u" > f631
     if ( 0 == noExec ) {
-      print "set -e"
-      XTRACE_ON
+      print "set -e" > f631
+      XTRACE_ON > f631
     }
   }
-  SECTION_LINE
+  if ( 0 == no632Hdr ) {
+    BIN_BASH > f632
+    print "sourceDir='" sourceDir "'" > f632
+    if ( 1 == remoteBackup ) {
+      print "backupUserHostDirScp='" backupUserHost ":'" QUOTEPROT "'" backupDirScp "'" QUOTEPROT > f632
+    } else {
+      print "backupDir='" backupDir "'" > f632
+    }
+    if ( 1 == remoteBackup ) {
+      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f632
+    } else {
+      if ( 1 == extraTouch ) {
+        print "CP" ONE_TO_MAXPARALLEL "='cp'" > f632
+        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f632
+      } else {
+        print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'" > f632
+      }
+    }
+    print "set -u" > f632
+    if ( 0 == noExec ) {
+      print "set -e" > f632
+      XTRACE_ON > f632
+    }
+  }
+  if ( 0 == no633Hdr ) {
+    BIN_BASH > f633
+    print "sourceDir='" sourceDir "'" > f633
+    if ( 1 == pRevUser ) {
+      print "CHOWN" ONE_TO_MAXPARALLEL "='chown'" > f633
+    }
+    if ( 1 == pRevGroup ) {
+      print "CHGRP" ONE_TO_MAXPARALLEL "='chgrp'" > f633
+    }
+    if ( 1 == pRevMode ) {
+      print "CHMOD" ONE_TO_MAXPARALLEL "='chmod'" > f633
+    }
+    print "set -u" > f633
+    if ( 0 == noExec ) {
+      print "set -e" > f633
+      XTRACE_ON > f633
+    }
+  }
+  SECTION_LINE > f631
+  SECTION_LINE > f632
+  SECTION_LINE > f633
 }
 function rev_check_nonex_dir() {
-  print "${TEST_DIR} ! -e " s " ] || ${REV_EXISTS_ERR_DIR} '" ptt "'"
+  print "${TEST_DIR} ! -e " s " ] || ${REV_EXISTS_ERR_DIR} '" ptt "'" > f631
 }
 function rev_apply_attr_dir() {
   if ( 1 == pRevUser ) {
-    print "${CHOWN_DIR} " u " " s
+    print "${CHOWN_DIR} " u " " s > f631
   }
   if ( 1 == pRevGroup ) {
-    print "${CHGRP_DIR} " g " " s
+    print "${CHGRP_DIR} " g " " s > f631
   }
   if ( 1 == pRevMode ) {
-    print "${CHMOD_DIR} " m " " s
+    print "${CHMOD_DIR} " m " " s > f631
   }
 }
 function rev_check_nonex() {
-  print "${TEST" pin "} ! -e " s " ] || ${REV_EXISTS_ERR" pin "} '" ptt "'"
+  print "${TEST" pin "} ! -e " s " ] || ${REV_EXISTS_ERR" pin "} '" ptt "'" > f631
 }
 function rev_copy_file() {
   if ( 1 == remoteBackup ) {
-    print "${SCP" pin "} " bScp " " s
+    print "${SCP" pin "} " bScp " " s > f632
   } else {
-    print "${CP" pin "} " b " " s
+    print "${CP" pin "} " b " " s > f632
     if ( 1 == extraTouch ) {
-      print "${TOUCH" pin "} " b " " s
+      print "${TOUCH" pin "} " b " " s > f632
     }
   }
 }
 function rev_apply_attr() {
   if ( 1 == pRevUser ) {
-    print "${CHOWN" pin "} " u " " s
+    print "${CHOWN" pin "} " u " " s > f633
   }
   if ( 1 == pRevGroup ) {
-    print "${CHGRP" pin "} " g " " s
+    print "${CHGRP" pin "} " g " " s > f633
   }
   if ( 1 == pRevMode ) {
-    print "${CHMOD" pin "} " m " " s
+    print "${CHMOD" pin "} " m " " s > f633
   }
 }
 function next_pin() {
@@ -4106,7 +4083,7 @@ function next_pin() {
   bScp = "\"${backupUserHostDirScp}\"" QUOTEPROT "'" ptScp "'" QUOTEPROT
   if ( $2 ~ /^REV\.MKDI/ ) {
     rev_check_nonex_dir()
-    print "${MKDIR} " s
+    print "${MKDIR} " s > f631
     rev_apply_attr_dir()
   } else if ( $2 ~ /^REV\.NEW/ ) {
     rev_check_nonex()
@@ -4122,7 +4099,12 @@ function next_pin() {
   }
 }
 END {
-  SECTION_LINE
+  SECTION_LINE > f631
+  SECTION_LINE > f632
+  SECTION_LINE > f633
+  close( f631 )
+  close( f632 )
+  close( f633 )
 }
 AWKEXEC3
 
@@ -4141,14 +4123,19 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
          -v pRevUser=${pRevUser}                   \
          -v pRevGroup=${pRevGroup}                 \
          -v pRevMode=${pRevMode}                   \
-         -v noExecHdr=${noExec3Hdr}                \
-         "${f530}"                                 > "${f630}"
+         -v no631Hdr=${no631Hdr}                   \
+         -v no632Hdr=${no632Hdr}                   \
+         -v no633Hdr=${no633Hdr}                   \
+         -v f631="${f631Awk}"                      \
+         -v f632="${f632Awk}"                      \
+         -v f633="${f633Awk}"                      \
+         "${f530}"
 
   stop_progress
 
 else
 
-  files_not_prepared "${f630}"
+  files_not_prepared "${f631}" "${f632}" "${f633}"
 
   if [ -e "${f530}" ]; then
     error_exit "Unexpected, REV actions prepared although neither --revNew nor --revUp option given"
@@ -4165,18 +4152,18 @@ if [ ${noRemove} -eq 0 ]; then
   ${awk} -f "${f410}"                    \
          -v backupDir="${backupDirAwk}"  \
          -v noExec=${noExec}             \
-         -v noExecHdr=${noExec4Hdr}      \
+         -v no610Hdr=${no640Hdr}         \
          "${f540}"                       > "${f640}"
 
   stop_progress
 
-  copyToMetaRemote+=( "${f640}" )
+  copyToRemoteBackup+=( "${f640}" )
 
 else
 
   files_not_prepared "${f640}"
 
-  removeFromMetaRemote+="${f640RemoteScp} "
+  removeFromRemoteBackup+="${f640RemoteScp} "
 
   if [ -e "${f540}" ]; then
     error_exit "Unexpected, avoidable removals prepared although --noRemove option given"
@@ -4202,31 +4189,23 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
          -v pUser=${pUser}                         \
          -v pGroup=${pGroup}                       \
          -v pMode=${pMode}                         \
-         -v noExecHdr=${noExec5Hdr}                \
+         -v no621Hdr=${no651Hdr}                   \
+         -v no622Hdr=${no652Hdr}                   \
+         -v no623Hdr=${no653Hdr}                   \
          -v f621="${f651Awk}"                      \
          -v f622="${f652Awk}"                      \
          -v f623="${f653Awk}"                      \
-         "${f550}"                                 > "${f650}"
+         "${f550}"
 
   stop_progress
 
-  if [ ${remoteBackup} -eq 1 ]; then
-
-    files_not_prepared "${f650}"
-
-    copyToMetaRemote+=( "${f651}" "${f653}" )
-
-  else
-
-    files_not_prepared "${f651}" "${f652}" "${f653}"
-
-  fi
+  copyToRemoteBackup+=( "${f651}" "${f653}" )
 
 else
 
-  files_not_prepared "${f650}" "${f651}" "${f652}" "${f653}"
+  files_not_prepared "${f651}" "${f652}" "${f653}"
 
-  removeFromMetaRemote+="${f651RemoteScp} ${f653RemoteScp} "
+  removeFromRemoteBackup+="${f651RemoteScp} ${f653RemoteScp} "
 
   if [ -e "${f550}" ]; then
     error_exit "Unexpected, copies resulting from comparing contents of files prepared although neither --byteByByte nor --sha256 option given"
@@ -4259,7 +4238,7 @@ ${awk} -f "${f490}"                \
 
 stop_progress
 
-copyToMetaRemote+=( "${f690}" )
+copyToRemoteBackup+=( "${f690}" )
 
 ###########################################################
 ${awk} -f "${f100}" << 'AWKRESTORE' > "${f700}"
@@ -4417,7 +4396,7 @@ END {
 }
 AWKRESTORE
 
-copyToMetaRemote+=( "${f700}" )
+copyToRemoteBackup+=( "${f700}" )
 
 if [ ${noRestore} -eq 0 ]; then
 
@@ -4447,14 +4426,14 @@ if [ ${noRestore} -eq 0 ]; then
 
   stop_progress
 
-  copyToMetaRemote+=( "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}" )
+  copyToRemoteBackup+=( "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}" )
 
 else
 
   files_not_prepared "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}"
 
-  removeFromMetaRemote+="${f800RemoteScp} ${f810RemoteScp} ${f820RemoteScp} ${f830RemoteScp} "
-  removeFromMetaRemote+="${f840RemoteScp} ${f850RemoteScp} ${f860RemoteScp} "
+  removeFromRemoteBackup+="${f800RemoteScp} ${f810RemoteScp} ${f820RemoteScp} ${f830RemoteScp} "
+  removeFromRemoteBackup+="${f840RemoteScp} ${f850RemoteScp} ${f860RemoteScp} "
 
 fi
 
@@ -4464,9 +4443,9 @@ if [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpQuiet} ${scpOptions} "${copyToMetaRemote[@]}" "${backupUserHost}:${metaDirScp}"
+  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
 
-  ssh ${sshOptions} "${backupUserHost}" "rm -f ${removeFromMetaRemote}"
+  ssh ${sshOptions} "${backupUserHost}" "rm -f ${removeFromRemoteBackup}"
 
   progress_scp_meta '>'
 
@@ -4482,7 +4461,7 @@ fi
 
 if [ -s "${f510}" ]; then
   echo
-  echo "UNAVOIDABLE REMOVALS FROM ${backupDirTerm}"
+  echo "UNAVOIDABLE REMOVALS FROM ${backupUserHostDirTerm}"
   echo "==========================================="
 
   ${awk} -f "${f104}" -v color=${color} "${f510}"
@@ -4492,7 +4471,7 @@ if [ -s "${f510}" ]; then
     echo "WARNING: Unavoidable removals prepared regardless of the --noRemove option"
   fi
   echo
-  read -p "Execute above listed removals from ${backupDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
+  read -p "Execute above listed removals from ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
   if [ "Y" == "${tmpVal/y/Y}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
@@ -4506,14 +4485,14 @@ if [ -s "${f510}" ]; then
 fi
 
 echo
-echo "TO BE COPIED TO ${backupDirTerm}"
+echo "TO BE COPIED TO ${backupUserHostDirTerm}"
 echo "==========================================="
 
 ${awk} -f "${f104}" -v color=${color} "${f520}"
 
 if [ -s "${f520}" ]; then
   echo
-  read -p "Execute above listed copies to ${backupDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
+  read -p "Execute above listed copies to ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
   if [ "Y" == "${tmpVal/y/Y}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
@@ -4521,7 +4500,9 @@ if [ -s "${f520}" ]; then
       bash "${f622}"                                                | ${awkNoBuf} -f "${f102}" -v color=${color}
       ssh ${sshOptions} "${backupUserHost}" "bash ${f623RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     else
-      bash "${f620}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f621}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f622}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f623}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     fi
   else
     error_exit "User requested Zaloha to abort"
@@ -4540,7 +4521,9 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
     read -p "Execute above listed reverse-copies to ${sourceDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
     if [ "Y" == "${tmpVal/y/Y}" ]; then
       echo
-      bash "${f630}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f631}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f632}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f633}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     else
       error_exit "User requested Zaloha to abort"
     fi
@@ -4549,14 +4532,14 @@ fi
 
 if [ ${noRemove} -eq 0 ]; then
   echo
-  echo "TO BE REMOVED FROM ${backupDirTerm}"
+  echo "TO BE REMOVED FROM ${backupUserHostDirTerm}"
   echo "==========================================="
 
   ${awk} -f "${f104}" -v color=${color} "${f540}"
 
   if [ -s "${f540}" ]; then
     echo
-    read -p "Execute above listed removals from ${backupDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
+    read -p "Execute above listed removals from ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
     if [ "Y" == "${tmpVal/y/Y}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
@@ -4572,14 +4555,14 @@ fi
 
 if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
   echo
-  echo "FROM COMPARING CONTENTS OF FILES: TO BE COPIED TO ${backupDirTerm}"
+  echo "FROM COMPARING CONTENTS OF FILES: TO BE COPIED TO ${backupUserHostDirTerm}"
   echo "==========================================="
 
   ${awk} -f "${f104}" -v color=${color} "${f550}"
 
   if [ -s "${f550}" ]; then
     echo
-    read -p "Execute above listed copies to ${backupDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
+    read -p "Execute above listed copies to ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
     if [ "Y" == "${tmpVal/y/Y}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
@@ -4587,7 +4570,9 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
         bash "${f652}"                                                | ${awkNoBuf} -f "${f102}" -v color=${color}
         ssh ${sshOptions} "${backupUserHost}" "bash ${f653RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
-        bash "${f650}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f651}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f652}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f653}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
     else
       error_exit "User requested Zaloha to abort"
