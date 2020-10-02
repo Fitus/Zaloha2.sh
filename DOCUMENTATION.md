@@ -6,9 +6,12 @@ Zaloha is a small and simple directory synchronizer:
  * Zaloha is a BASH script that uses only FIND, SORT and AWK. All you need
    is the Zaloha2.sh file. This documentation is contained in Zaloha2.sh too.
  * Cyber-secure: No new binary code, no new open ports, easily reviewable.
- * Two operation modes are available: Local Mode and Remote Backup Mode
+ * Three operation modes are available: Local Mode, Remote Source Mode and
+   Remote Backup Mode
  * Local Mode: Both &lt;sourceDir&gt; and &lt;backupDir&gt; are available locally
    (local HDD/SSD, flash drive, mounted Samba or NFS volume).
+ * Remote Source Mode: &lt;sourceDir&gt; is on a remote source host that can be
+   reached via SSH/SCP, &lt;backupDir&gt; is available locally.
  * Remote Backup Mode: &lt;sourceDir&gt; is available locally, &lt;backupDir&gt; is on a
    remote backup host that can be reached via SSH/SCP.
  * Zaloha does not lock files while copying them. No writing on either directory
@@ -332,13 +335,17 @@ metadata for an eventual analysis of problems and you loose the shellscripts
 for the case of restore (especially the scripts to restore the symbolic links
 and hardlinks (which are kept in metadata only)).
 
-Local Temporary Metadata directory of Zaloha
---------------------------------------------
-In the Remote Backup Mode, Zaloha performs its main metadata processing in a
-local temporary Metadata directory and then copies only select metadata files
-to the Metadata directory on the remote backup host.
+Temporary Metadata directory of Zaloha
+--------------------------------------
+In the Remote Source Mode, Zaloha needs a temporary Metadata directory on the
+remote source host for copying scripts to there, executing them and obtaining
+the CSV file from the FIND scan of &lt;sourceDir&gt; from there.
 
-The default location of the local temporary Metadata directory is
+In the Remote Backup Mode, Zaloha performs its main metadata processing in a
+temporary Metadata directory on the local (= source) host and then copies only
+select metadata files to the Metadata directory on the remote (= backup) host.
+
+The default location of the temporary Metadata directory is
 &lt;sourceDir&gt;/.Zaloha_metadata_temp and can be changed via the <b>--metaDirTemp</b>
 option.
 
@@ -363,6 +370,9 @@ processing time and/or storage space consumption. It can be switched off by the
 
 <b>--sourceDir</b>=&lt;sourceDir&gt; is mandatory. &lt;sourceDir&gt; must exist, otherwise Zaloha
     throws an error (except when the <b>--noDirChecks</b> option is given).
+    In Remote Source mode, this is the source directory on the remote source
+    host. If &lt;sourceDir&gt; is relative, then it is relative to the SSH login
+    directory of the user on the remote source host.
 
 <b>--backupDir</b>=&lt;backupDir&gt; is mandatory. &lt;backupDir&gt; must exist, otherwise Zaloha
     throws an error (except when the <b>--noDirChecks</b> option is given).
@@ -370,16 +380,19 @@ processing time and/or storage space consumption. It can be switched off by the
     host. If &lt;backupDir&gt; is relative, then it is relative to the SSH login
     directory of the user on the remote backup host.
 
+<b>--sourceUserHost</b>=&lt;sourceUserHost&gt; indicates that &lt;sourceDir&gt; resides on a remote
+    source host to be reached via SSH/SCP. Format: user@host
+
 <b>--backupUserHost</b>=&lt;backupUserHost&gt; indicates that &lt;backupDir&gt; resides on a remote
     backup host to be reached via SSH/SCP. Format: user@host
 
 <b>--sshOptions</b>=&lt;sshOptions&gt; are additional command-line options for the
     SSH command, separated by spaces. Typical usage is explained in section
-    Advanced Use of Zaloha - Remote Backup Mode.
+    Advanced Use of Zaloha - Remote Source and Backup Modes.
 
 <b>--scpOptions</b>=&lt;scpOptions&gt; are additional command-line options for the
     SCP command, separated by spaces. Typical usage is explained in section
-    Advanced Use of Zaloha - Remote Backup Mode.
+    Advanced Use of Zaloha - Remote Source and Backup Modes.
 
 <b>--findSourceOps</b>=&lt;findSourceOps&gt; are additional operands for the FIND command
     that scans &lt;sourceDir&gt;, to be used to exclude files or subdirectories in
@@ -454,8 +467,8 @@ processing time and/or storage space consumption. It can be switched off by the
                     equal sizes and SHA-256 hashes. Calculation of the hashes
                     might dramatically slow down Zaloha. If additional updates
                     of files result from this comparison, they will be executed
-                    in step Exec5. This option is available in both Local and
-                    Remote Backup Modes.
+                    in step Exec5. This option is available in all three modes
+                    (Local, Remote Source and Remote Backup).
 
 <b>--noUnlink</b>      ... never unlink multiply linked files in &lt;backupDir&gt; before
                     writing to them
@@ -520,18 +533,21 @@ processing time and/or storage space consumption. It can be switched off by the
     In Remote Backup Mode, if &lt;metaDir&gt; is relative, then it is relative to the
     SSH login directory of the user on the remote backup host.
 
-<b>--metaDirTemp</b>=&lt;metaDirTemp&gt; may be used only in Remote Backup Mode, where Zaloha
-    needs a local temporary Metadata directory too. This option allows to place
-    it to a different location than the default
+<b>--metaDirTemp</b>=&lt;metaDirTemp&gt; may be used only in the Remote Source or Remote
+    Backup Modes, where Zaloha needs a temporary Metadata directory too. This
+    option allows to place it to a different location than the default
     (which is &lt;sourceDir&gt;/.Zaloha_metadata_temp).
 
     If &lt;metaDirTemp&gt; is placed to a different location inside of &lt;sourceDir&gt;,
     then it is necessary to explicitly pass a FIND expression to exclude it
     from the respective FIND scan via &lt;findGeneralOps&gt;.
 
-    If Zaloha is used to synchronize multiple directories in Remote Backup Mode,
-    then each such instance of Zaloha must have its own separate local temporary
-    Metadata directory.
+    If Zaloha is used to synchronize multiple directories in the Remote Source
+    or Remote Backup Modes, then each such instance of Zaloha must have its own
+    separate temporary Metadata directory.
+
+    In Remote Source Mode, if &lt;metaDirTemp&gt; is relative, then it is relative to
+    the SSH login directory of the user on the remote source host.
 
 <b>--noDirChecks</b>   ... switch off the checks for existence of &lt;sourceDir&gt; and
     &lt;backupDir&gt;. (Explained in the Advanced Use of Zaloha section below).
@@ -1336,65 +1352,42 @@ any code page conversions.
 </pre>
 
 
-### ADVANCED USE OF ZALOHA - DIRECTORIES NOT AVAILABLE LOCALLY
+### ADVANCED USE OF ZALOHA - REMOTE SOURCE AND REMOTE BACKUP MODES
 
 <pre>
-Zaloha contains several technical integration options to handle situations when
-&lt;sourceDir&gt; and/or &lt;backupDir&gt; are not available locally. In the extreme case,
-Zaloha can be used as a mere "difference engine" by a wrapper script, which
-obtains the inputs (FIND data from &lt;sourceDir&gt; and/or &lt;backupDir&gt;) remotely,
-and also applies the outputs (= executes the Exec1/2/3/4/5 scripts) remotely.
+Remote Source Mode
+------------------
+In the Remote Source Mode, &lt;sourceDir&gt; is on a remote source host that can be
+reached via SSH/SCP, and &lt;backupDir&gt; is available locally. This mode is
+activated by the <b>--sourceUserHost</b> option.
 
-First useful option is <b>--noDirChecks:</b> This switches off the checks for local
-existence of &lt;sourceDir&gt; and &lt;backupDir&gt;.
+The FIND scan of &lt;sourceDir&gt; is run on the remote side in an SSH session, the
+FIND scan of &lt;backupDir&gt; runs locally. The subsequent sorts + AWK processing
+steps occur locally. The Exec1/2/3/4/5 steps are then executed as follows:
 
-If &lt;backupDir&gt; is not available locally, it is necessary to use the <b>--metaDir</b>
-option to place the Zaloha metadata directory to a different location accessible
-to Zaloha.
+Exec1: The shellscript 610 is executed locally.
 
-Next useful options are <b>--noFindSource</b> and/or <b>--noFindBackup:</b> They instruct
-Zaloha to not run FIND on &lt;sourceDir&gt; and/or &lt;backupDir&gt;, but use externally
-supplied CSV metadata files 310 and/or 320 instead. This means that these files
-must be produced by the wrapper script (e.g. by running FIND commands in an SSH
-session) and downloaded to the Zaloha metadata directory before invoking Zaloha.
-These files must, of course, have the same names and contents as the CSV
-metadata files that would otherwise be produced by the scripts 210 and/or 220.
+Exec2: All three shellscripts 621, 622 and 623 are executed locally. The script
+622 contains SCP commands instead of CP commands.
 
-The <b>--noFindSource</b> and/or <b>--noFindBackup</b> options are also useful when
-network-mounted directories are available locally, but running FIND on them is
-slow. Running the FINDs directly on the respective file servers in SSH sessions
-should be much quicker.
+Exec3: The shellscript 631 contains pre-copy actions and is run on the remote
+side "in one batch". The shellscript 632 contains the individual SCP commands
+to be executed locally. The shellscript 633 contains post-copy actions and
+is run on the remote side "in one batch".
 
-If &lt;sourceDir&gt; or &lt;backupDir&gt; are not available locally, the <b>--noExec</b> option
-must be used to prevent execution of the Exec1/2/3/4/5 scripts by Zaloha itself.
+Exec4 (shellscript 640): same as Exec1
 
-Last set of useful options are <b>--no610Hdr</b> through <b>--no653Hdr.</b> They instruct
-Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
-The headers normally contain definitions used in the bodies of the scripts.
-Header-less scripts can be easily used with alternative headers that contain
-different definitions. This gives much flexibility:
+Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
-The "command variables" can be assigned to different commands (e.g. cp -&gt; scp).
-Own shell functions can be defined and assigned to the "command variables".
-This makes more elaborate processing possible, as well as calling commands that
-have different order of command line arguments. Next, the "directory variables"
-sourceDir and backupDir can be assigned to empty strings, thus causing the paths
-passed to the commands to be not prefixed by &lt;sourceDir&gt; or &lt;backupDir&gt;.
-</pre>
+Remote Backup Mode
+------------------
+In the Remote Backup Mode, &lt;sourceDir&gt; is available locally, and &lt;backupDir&gt; is
+on a remote backup host that can be reached via SSH/SCP. This mode is activated
+by the <b>--backupUserHost</b> option.
 
-
-### ADVANCED USE OF ZALOHA - REMOTE BACKUP MODE
-
-<pre>
-Besides keeping the above described technical integration options open, it makes
-sense to "natively" implement the most common case of remote operations, namely
-the backup directory on a remote backup host that can be reached via SSH/SCP.
-
-This functionality is activated by the <b>--backupUserHost</b> option.
-
-In that case, the FIND scan of &lt;backupDir&gt; is run on the remote side in an
-SSH session. The subsequent sorts + AWK processing steps occur locally.
-The Exec1/2/3/4/5 steps are then executed as follows:
+The FIND scan of &lt;sourceDir&gt; runs locally, the FIND scan of &lt;backupDir&gt; is run
+on the remote side in an SSH session. The subsequent sorts + AWK processing
+steps occur locally. The Exec1/2/3/4/5 steps are then executed as follows:
 
 Exec1: The shellscript 610 is run on the remote side "in one batch", because it
 contains only <b>RMDIR</b> and <b>REMOVE</b> operations to be executed on &lt;backupDir&gt;.
@@ -1402,7 +1395,7 @@ contains only <b>RMDIR</b> and <b>REMOVE</b> operations to be executed on &lt;ba
 Exec2: The shellscript 621 contains pre-copy actions and is run on the remote
 side "in one batch". The shellscript 622 contains the individual SCP commands
 to be executed locally. The shellscript 623 contains post-copy actions and
-is run on the remote side "in one batch"
+is run on the remote side "in one batch".
 
 Exec3: All three shellscripts 631, 632 and 633 are executed locally. The script
 632 contains SCP commands instead of CP commands.
@@ -1411,7 +1404,9 @@ Exec4 (shellscript 640): same as Exec1
 
 Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
-Note: Running multiple operations on the remote side via SSH "in one batch" has
+Note
+----
+Running multiple operations on the remote side via SSH "in one batch" has
 positive performance effects on networks with high latency, compared with
 running individual commands via SSH individually (which would require a network
 round-trip for each individual command).
@@ -1431,7 +1426,7 @@ The SSH master connection is typically created as follows:
 
   ssh -nNf -o ControlMaster=yes                   \
            -o ControlPath='~/.ssh/cm-%r@%h:%p'    \
-           &lt;backupUserHost&gt;
+           &lt;remoteHost&gt;
 
 To instruct the SSH and SCP commands invoked by Zaloha to use the SSH master
 connection, use the options <b>--sshOptions</b> and <b>--scpOptions:</b>
@@ -1441,7 +1436,7 @@ connection, use the options <b>--sshOptions</b> and <b>--scpOptions:</b>
 
 After use, the SSH master connection should be terminated as follows:
 
-  ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' &lt;backupUserHost&gt;
+  ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' &lt;remoteHost&gt;
 
 Windows / Cygwin notes:
 -----------------------
@@ -1454,8 +1449,8 @@ To avoid repeated entering of passwords, set up SSH Public Key authentication.
 
 Other SSH/SCP-related remarks:
 ------------------------------
-The backup directory &lt;backupDir&gt;, if relative, is relative to the SSH login
-directory of the user on the remote backup host.
+The remote source or backup directory &lt;sourceDir&gt; or &lt;backupDir&gt;, if relative,
+is relative to the SSH login directory of the user on the remote host.
 
 To use a different port, use also the options <b>--sshOptions</b> and <b>--scpOptions</b>
 to pass the options "-p &lt;backupPort&gt;" to SSH and "-P &lt;backupPort&gt;" to SCP.
@@ -1479,6 +1474,43 @@ Eventual "at" signs (@) and colons (:) contained in directory names should not
 cause misinterpretations as users and hosts by SCP, because Zaloha prepends
 relative paths by "./" and SCP does not interpret "at" signs (@) and colons (:)
 after first slash in file/directory names.
+</pre>
+
+
+### ADVANCED USE OF ZALOHA - COMPARING CONTENTS OF FILES
+
+<pre>
+First, let's make it clear that comparing contents of files will increase the
+runtime dramatically, because instead of reading just the directory data,
+the files themselves must be read.
+
+ALTERNATIVE 1: option <b>--byteByByte</b> (suitable if both filesystems are local)
+
+Option <b>--byteByByte</b> forces Zaloha to compare "byte by byte" files that appear
+identical (more precisely, files for which either "no action" (<b>OK</b>) or just
+"update of attributes" (<b>ATTR</b>) has been prepared). If additional updates of files
+result from this comparison, they will be executed in step Exec5.
+
+ALTERNATIVE 2: option <b>--sha256</b> (compare contents of files via SHA-256 hashes)
+
+There is an almost 100% security that files are identical if they have equal
+sizes and SHA-256 hashes. The <b>--sha256</b> option instructs Zaloha to prepare
+FIND expressions that, besides collecting the usual metadata via the -printf
+operand, cause SHA256SUM to be invoked on each file to calculate the SHA-256
+hash. These calculated hashes are contained in extra records in files 310 and
+320, and AWKCLEANER merges them into the regular records in the cleaned files
+330 and 340 (the SHA-256 hashes go into column 13).
+
+If additional updates of files result from comparisons of SHA-256 hashes,
+they will be executed in step Exec5 (same principle as for the <b>--byteByByte</b>
+option).
+
+Comparing contents of files via the SHA-256 hashes should be used when the
+source and backup directories reside on different hosts and the FIND scans are
+executed on those hosts (in Remote Source and Remote Backup Modes): The SHA-256
+hashes will then be calculated on each host locally and the comparisons of file
+contents require just the hashes to be transferred over the network, not the
+files themselves.
 </pre>
 
 
@@ -1514,39 +1546,49 @@ with the header-less 622 script (of which only one copy is needed then).
 </pre>
 
 
-### ADVANCED USE OF ZALOHA - COMPARING CONTENTS OF FILES
+### ADVANCED USE OF ZALOHA - TECHNICAL INTEGRATION OPTIONS
 
 <pre>
-First, let's make it clear that comparing contents of files will increase the
-runtime dramatically, because instead of reading just the directory data,
-the files themselves must be read.
+Zaloha contains several options to make technical integrations easy. In the
+extreme case, Zaloha can be used as a mere "difference engine" which takes
+the FIND data from &lt;sourceDir&gt; and/or &lt;backupDir&gt; as inputs and produces the
+CSV metadata and the Exec1/2/3/4/5 scripts as outputs.
 
-ALTERNATIVE 1: option <b>--byteByByte</b> (suitable if both filesystems are local)
+First useful option is <b>--noDirChecks:</b> This switches off the checks for
+existence of &lt;sourceDir&gt; and &lt;backupDir&gt;.
 
-Option <b>--byteByByte</b> forces Zaloha to compare "byte by byte" files that appear
-identical (more precisely, files for which either "no action" (<b>OK</b>) or just
-"update of attributes" (<b>ATTR</b>) has been prepared). If additional updates of files
-result from this comparison, they will be executed in step Exec5.
+In Local Mode, if &lt;backupDir&gt; is not available locally, it is necessary to use
+the <b>--metaDir</b> option to place the Zaloha metadata directory to a location
+accessible to Zaloha.
 
-ALTERNATIVE 2: option <b>--sha256</b> (compare contents of files via SHA-256 hashes)
+Next useful options are <b>--noFindSource</b> and/or <b>--noFindBackup:</b> They instruct
+Zaloha to not run FIND on &lt;sourceDir&gt; and/or &lt;backupDir&gt;, but use externally
+supplied CSV metadata files 310 and/or 320 instead. This means that these files
+must be produced externally and downloaded to the Zaloha metadata directory
+before invoking Zaloha. These files must, of course, have the same names and
+contents as the CSV metadata files that would otherwise be produced by the
+scripts 210 and/or 220.
 
-There is an almost 100% security that files are identical if they have equal
-sizes and SHA-256 hashes. The <b>--sha256</b> option instructs Zaloha to prepare
-FIND expressions that, besides collecting the usual metadata via the -printf
-operand, cause SHA256SUM to be invoked on each file to calculate the SHA-256
-hash. These calculated hashes are contained in extra records in files 310 and
-320, and AWKCLEANER merges them into the regular records in the cleaned files
-330 and 340 (the SHA-256 hashes go into column 13).
+The <b>--noFindSource</b> and/or <b>--noFindBackup</b> options are also useful when
+network-mounted directories are available locally, but running FIND on them is
+slow. Running the FINDs directly on the respective file servers in SSH sessions
+should be much quicker.
 
-If additional updates of files result from comparisons of SHA-256 hashes,
-they will be executed in step Exec5 (same principle as for the <b>--byteByByte</b>
-option).
+The <b>--noExec</b> option can be used to prevent execution of the Exec1/2/3/4/5
+scripts by Zaloha itself.
 
-Comparing contents of files via the SHA-256 hashes should be used when the
-source and backup directories reside on different hosts and the FIND scans are
-executed on those hosts (in Remote Backup Mode): The SHA-256 hashes will then
-be calculated on each host locally and the comparisons of file contents require
-just the hashes to be transferred over the network, not the files themselves.
+Last set of useful options are <b>--no610Hdr</b> through <b>--no653Hdr.</b> They instruct
+Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
+The headers normally contain definitions used in the bodies of the scripts.
+Header-less scripts can be easily used with alternative headers that contain
+different definitions. This gives much flexibility:
+
+The "command variables" can be assigned to different commands (e.g. cp -&gt; scp).
+Own shell functions can be defined and assigned to the "command variables".
+This makes more elaborate processing possible, as well as calling commands that
+have different order of command line arguments. Next, the "directory variables"
+sourceDir and backupDir can be assigned to empty strings, thus causing the paths
+passed to the commands to be not prefixed by &lt;sourceDir&gt; or &lt;backupDir&gt;.
 </pre>
 
 

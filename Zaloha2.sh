@@ -35,9 +35,12 @@ Zaloha is a small and simple directory synchronizer:
  * Zaloha is a BASH script that uses only FIND, SORT and AWK. All you need
    is THIS file. For documentation, also read THIS file.
  * Cyber-secure: No new binary code, no new open ports, easily reviewable.
- * Two operation modes are available: Local Mode and Remote Backup Mode
+ * Three operation modes are available: Local Mode, Remote Source Mode and
+   Remote Backup Mode
  * Local Mode: Both <sourceDir> and <backupDir> are available locally
    (local HDD/SSD, flash drive, mounted Samba or NFS volume).
+ * Remote Source Mode: <sourceDir> is on a remote source host that can be
+   reached via SSH/SCP, <backupDir> is available locally.
  * Remote Backup Mode: <sourceDir> is available locally, <backupDir> is on a
    remote backup host that can be reached via SSH/SCP.
  * Zaloha does not lock files while copying them. No writing on either directory
@@ -359,13 +362,17 @@ metadata for an eventual analysis of problems and you loose the shellscripts
 for the case of restore (especially the scripts to restore the symbolic links
 and hardlinks (which are kept in metadata only)).
 
-Local Temporary Metadata directory of Zaloha
---------------------------------------------
-In the Remote Backup Mode, Zaloha performs its main metadata processing in a
-local temporary Metadata directory and then copies only select metadata files
-to the Metadata directory on the remote backup host.
+Temporary Metadata directory of Zaloha
+--------------------------------------
+In the Remote Source Mode, Zaloha needs a temporary Metadata directory on the
+remote source host for copying scripts to there, executing them and obtaining
+the CSV file from the FIND scan of <sourceDir> from there.
 
-The default location of the local temporary Metadata directory is
+In the Remote Backup Mode, Zaloha performs its main metadata processing in a
+temporary Metadata directory on the local (= source) host and then copies only
+select metadata files to the Metadata directory on the remote (= backup) host.
+
+The default location of the temporary Metadata directory is
 <sourceDir>/.Zaloha_metadata_temp and can be changed via the "--metaDirTemp"
 option.
 
@@ -389,6 +396,9 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 
 --sourceDir=<sourceDir> is mandatory. <sourceDir> must exist, otherwise Zaloha
     throws an error (except when the "--noDirChecks" option is given).
+    In Remote Source mode, this is the source directory on the remote source
+    host. If <sourceDir> is relative, then it is relative to the SSH login
+    directory of the user on the remote source host.
 
 --backupDir=<backupDir> is mandatory. <backupDir> must exist, otherwise Zaloha
     throws an error (except when the "--noDirChecks" option is given).
@@ -396,16 +406,19 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
     host. If <backupDir> is relative, then it is relative to the SSH login
     directory of the user on the remote backup host.
 
+--sourceUserHost=<sourceUserHost> indicates that <sourceDir> resides on a remote
+    source host to be reached via SSH/SCP. Format: user@host
+
 --backupUserHost=<backupUserHost> indicates that <backupDir> resides on a remote
     backup host to be reached via SSH/SCP. Format: user@host
 
 --sshOptions=<sshOptions> are additional command-line options for the
     SSH command, separated by spaces. Typical usage is explained in section
-    Advanced Use of Zaloha - Remote Backup Mode.
+    Advanced Use of Zaloha - Remote Source and Backup Modes.
 
 --scpOptions=<scpOptions> are additional command-line options for the
     SCP command, separated by spaces. Typical usage is explained in section
-    Advanced Use of Zaloha - Remote Backup Mode.
+    Advanced Use of Zaloha - Remote Source and Backup Modes.
 
 --findSourceOps=<findSourceOps> are additional operands for the FIND command
     that scans <sourceDir>, to be used to exclude files or subdirectories in
@@ -480,8 +493,8 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     equal sizes and SHA-256 hashes. Calculation of the hashes
                     might dramatically slow down Zaloha. If additional updates
                     of files result from this comparison, they will be executed
-                    in step Exec5. This option is available in both Local and
-                    Remote Backup Modes.
+                    in step Exec5. This option is available in all three modes
+                    (Local, Remote Source and Remote Backup).
 
 --noUnlink      ... never unlink multiply linked files in <backupDir> before
                     writing to them
@@ -546,18 +559,21 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
     In Remote Backup Mode, if <metaDir> is relative, then it is relative to the
     SSH login directory of the user on the remote backup host.
 
---metaDirTemp=<metaDirTemp> may be used only in Remote Backup Mode, where Zaloha
-    needs a local temporary Metadata directory too. This option allows to place
-    it to a different location than the default
+--metaDirTemp=<metaDirTemp> may be used only in the Remote Source or Remote
+    Backup Modes, where Zaloha needs a temporary Metadata directory too. This
+    option allows to place it to a different location than the default
     (which is <sourceDir>/.Zaloha_metadata_temp).
 
     If <metaDirTemp> is placed to a different location inside of <sourceDir>,
     then it is necessary to explicitly pass a FIND expression to exclude it
     from the respective FIND scan via <findGeneralOps>.
 
-    If Zaloha is used to synchronize multiple directories in Remote Backup Mode,
-    then each such instance of Zaloha must have its own separate local temporary
-    Metadata directory.
+    If Zaloha is used to synchronize multiple directories in the Remote Source
+    or Remote Backup Modes, then each such instance of Zaloha must have its own
+    separate temporary Metadata directory.
+
+    In Remote Source Mode, if <metaDirTemp> is relative, then it is relative to
+    the SSH login directory of the user on the remote source host.
 
 --noDirChecks   ... switch off the checks for existence of <sourceDir> and
     <backupDir>. (Explained in the Advanced Use of Zaloha section below).
@@ -1356,63 +1372,41 @@ any code page conversions.
 
 ###########################################################
 
-ADVANCED USE OF ZALOHA - DIRECTORIES NOT AVAILABLE LOCALLY
+ADVANCED USE OF ZALOHA - REMOTE SOURCE AND REMOTE BACKUP MODES
 
-Zaloha contains several technical integration options to handle situations when
-<sourceDir> and/or <backupDir> are not available locally. In the extreme case,
-Zaloha can be used as a mere "difference engine" by a wrapper script, which
-obtains the inputs (FIND data from <sourceDir> and/or <backupDir>) remotely,
-and also applies the outputs (= executes the Exec1/2/3/4/5 scripts) remotely.
+Remote Source Mode
+------------------
+In the Remote Source Mode, <sourceDir> is on a remote source host that can be
+reached via SSH/SCP, and <backupDir> is available locally. This mode is
+activated by the "--sourceUserHost" option.
 
-First useful option is "--noDirChecks": This switches off the checks for local
-existence of <sourceDir> and <backupDir>.
+The FIND scan of <sourceDir> is run on the remote side in an SSH session, the
+FIND scan of <backupDir> runs locally. The subsequent sorts + AWK processing
+steps occur locally. The Exec1/2/3/4/5 steps are then executed as follows:
 
-If <backupDir> is not available locally, it is necessary to use the "--metaDir"
-option to place the Zaloha metadata directory to a different location accessible
-to Zaloha.
+Exec1: The shellscript 610 is executed locally.
 
-Next useful options are "--noFindSource" and/or "--noFindBackup": They instruct
-Zaloha to not run FIND on <sourceDir> and/or <backupDir>, but use externally
-supplied CSV metadata files 310 and/or 320 instead. This means that these files
-must be produced by the wrapper script (e.g. by running FIND commands in an SSH
-session) and downloaded to the Zaloha metadata directory before invoking Zaloha.
-These files must, of course, have the same names and contents as the CSV
-metadata files that would otherwise be produced by the scripts 210 and/or 220.
+Exec2: All three shellscripts 621, 622 and 623 are executed locally. The script
+622 contains SCP commands instead of CP commands.
 
-The "--noFindSource" and/or "--noFindBackup" options are also useful when
-network-mounted directories are available locally, but running FIND on them is
-slow. Running the FINDs directly on the respective file servers in SSH sessions
-should be much quicker.
+Exec3: The shellscript 631 contains pre-copy actions and is run on the remote
+side "in one batch". The shellscript 632 contains the individual SCP commands
+to be executed locally. The shellscript 633 contains post-copy actions and
+is run on the remote side "in one batch".
 
-If <sourceDir> or <backupDir> are not available locally, the "--noExec" option
-must be used to prevent execution of the Exec1/2/3/4/5 scripts by Zaloha itself.
+Exec4 (shellscript 640): same as Exec1
 
-Last set of useful options are "--no610Hdr" through "--no653Hdr". They instruct
-Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
-The headers normally contain definitions used in the bodies of the scripts.
-Header-less scripts can be easily used with alternative headers that contain
-different definitions. This gives much flexibility:
+Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
-The "command variables" can be assigned to different commands (e.g. cp -> scp).
-Own shell functions can be defined and assigned to the "command variables".
-This makes more elaborate processing possible, as well as calling commands that
-have different order of command line arguments. Next, the "directory variables"
-sourceDir and backupDir can be assigned to empty strings, thus causing the paths
-passed to the commands to be not prefixed by <sourceDir> or <backupDir>.
+Remote Backup Mode
+------------------
+In the Remote Backup Mode, <sourceDir> is available locally, and <backupDir> is
+on a remote backup host that can be reached via SSH/SCP. This mode is activated
+by the "--backupUserHost" option.
 
-###########################################################
-
-ADVANCED USE OF ZALOHA - REMOTE BACKUP MODE
-
-Besides keeping the above described technical integration options open, it makes
-sense to "natively" implement the most common case of remote operations, namely
-the backup directory on a remote backup host that can be reached via SSH/SCP.
-
-This functionality is activated by the "--backupUserHost" option.
-
-In that case, the FIND scan of <backupDir> is run on the remote side in an
-SSH session. The subsequent sorts + AWK processing steps occur locally.
-The Exec1/2/3/4/5 steps are then executed as follows:
+The FIND scan of <sourceDir> runs locally, the FIND scan of <backupDir> is run
+on the remote side in an SSH session. The subsequent sorts + AWK processing
+steps occur locally. The Exec1/2/3/4/5 steps are then executed as follows:
 
 Exec1: The shellscript 610 is run on the remote side "in one batch", because it
 contains only RMDIR and REMOVE operations to be executed on <backupDir>.
@@ -1420,7 +1414,7 @@ contains only RMDIR and REMOVE operations to be executed on <backupDir>.
 Exec2: The shellscript 621 contains pre-copy actions and is run on the remote
 side "in one batch". The shellscript 622 contains the individual SCP commands
 to be executed locally. The shellscript 623 contains post-copy actions and
-is run on the remote side "in one batch"
+is run on the remote side "in one batch".
 
 Exec3: All three shellscripts 631, 632 and 633 are executed locally. The script
 632 contains SCP commands instead of CP commands.
@@ -1429,7 +1423,9 @@ Exec4 (shellscript 640): same as Exec1
 
 Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
-Note: Running multiple operations on the remote side via SSH "in one batch" has
+Note
+----
+Running multiple operations on the remote side via SSH "in one batch" has
 positive performance effects on networks with high latency, compared with
 running individual commands via SSH individually (which would require a network
 round-trip for each individual command).
@@ -1449,7 +1445,7 @@ The SSH master connection is typically created as follows:
 
   ssh -nNf -o ControlMaster=yes                   \
            -o ControlPath='~/.ssh/cm-%r@%h:%p'    \
-           <backupUserHost>
+           <remoteHost>
 
 To instruct the SSH and SCP commands invoked by Zaloha to use the SSH master
 connection, use the options "--sshOptions" and "--scpOptions":
@@ -1459,7 +1455,7 @@ connection, use the options "--sshOptions" and "--scpOptions":
 
 After use, the SSH master connection should be terminated as follows:
 
-  ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' <backupUserHost>
+  ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' <remoteHost>
 
 Windows / Cygwin notes:
 -----------------------
@@ -1472,8 +1468,8 @@ To avoid repeated entering of passwords, set up SSH Public Key authentication.
 
 Other SSH/SCP-related remarks:
 ------------------------------
-The backup directory <backupDir>, if relative, is relative to the SSH login
-directory of the user on the remote backup host.
+The remote source or backup directory <sourceDir> or <backupDir>, if relative,
+is relative to the SSH login directory of the user on the remote host.
 
 To use a different port, use also the options "--sshOptions" and "--scpOptions"
 to pass the options "-p <backupPort>" to SSH and "-P <backupPort>" to SCP.
@@ -1497,6 +1493,42 @@ Eventual "at" signs (@) and colons (:) contained in directory names should not
 cause misinterpretations as users and hosts by SCP, because Zaloha prepends
 relative paths by "./" and SCP does not interpret "at" signs (@) and colons (:)
 after first slash in file/directory names.
+
+###########################################################
+
+ADVANCED USE OF ZALOHA - COMPARING CONTENTS OF FILES
+
+First, let's make it clear that comparing contents of files will increase the
+runtime dramatically, because instead of reading just the directory data,
+the files themselves must be read.
+
+ALTERNATIVE 1: option "--byteByByte" (suitable if both filesystems are local)
+
+Option "--byteByByte" forces Zaloha to compare "byte by byte" files that appear
+identical (more precisely, files for which either "no action" (OK) or just
+"update of attributes" (ATTR) has been prepared). If additional updates of files
+result from this comparison, they will be executed in step Exec5.
+
+ALTERNATIVE 2: option "--sha256" (compare contents of files via SHA-256 hashes)
+
+There is an almost 100% security that files are identical if they have equal
+sizes and SHA-256 hashes. The "--sha256" option instructs Zaloha to prepare
+FIND expressions that, besides collecting the usual metadata via the -printf
+operand, cause SHA256SUM to be invoked on each file to calculate the SHA-256
+hash. These calculated hashes are contained in extra records in files 310 and
+320, and AWKCLEANER merges them into the regular records in the cleaned files
+330 and 340 (the SHA-256 hashes go into column 13).
+
+If additional updates of files result from comparisons of SHA-256 hashes,
+they will be executed in step Exec5 (same principle as for the "--byteByByte"
+option).
+
+Comparing contents of files via the SHA-256 hashes should be used when the
+source and backup directories reside on different hosts and the FIND scans are
+executed on those hosts (in Remote Source and Remote Backup Modes): The SHA-256
+hashes will then be calculated on each host locally and the comparisons of file
+contents require just the hashes to be transferred over the network, not the
+files themselves.
 
 ###########################################################
 
@@ -1531,38 +1563,48 @@ with the header-less 622 script (of which only one copy is needed then).
 
 ###########################################################
 
-ADVANCED USE OF ZALOHA - COMPARING CONTENTS OF FILES
+ADVANCED USE OF ZALOHA - TECHNICAL INTEGRATION OPTIONS
 
-First, let's make it clear that comparing contents of files will increase the
-runtime dramatically, because instead of reading just the directory data,
-the files themselves must be read.
+Zaloha contains several options to make technical integrations easy. In the
+extreme case, Zaloha can be used as a mere "difference engine" which takes
+the FIND data from <sourceDir> and/or <backupDir> as inputs and produces the
+CSV metadata and the Exec1/2/3/4/5 scripts as outputs.
 
-ALTERNATIVE 1: option "--byteByByte" (suitable if both filesystems are local)
+First useful option is "--noDirChecks": This switches off the checks for
+existence of <sourceDir> and <backupDir>.
 
-Option "--byteByByte" forces Zaloha to compare "byte by byte" files that appear
-identical (more precisely, files for which either "no action" (OK) or just
-"update of attributes" (ATTR) has been prepared). If additional updates of files
-result from this comparison, they will be executed in step Exec5.
+In Local Mode, if <backupDir> is not available locally, it is necessary to use
+the "--metaDir" option to place the Zaloha metadata directory to a location
+accessible to Zaloha.
 
-ALTERNATIVE 2: option "--sha256" (compare contents of files via SHA-256 hashes)
+Next useful options are "--noFindSource" and/or "--noFindBackup": They instruct
+Zaloha to not run FIND on <sourceDir> and/or <backupDir>, but use externally
+supplied CSV metadata files 310 and/or 320 instead. This means that these files
+must be produced externally and downloaded to the Zaloha metadata directory
+before invoking Zaloha. These files must, of course, have the same names and
+contents as the CSV metadata files that would otherwise be produced by the
+scripts 210 and/or 220.
 
-There is an almost 100% security that files are identical if they have equal
-sizes and SHA-256 hashes. The "--sha256" option instructs Zaloha to prepare
-FIND expressions that, besides collecting the usual metadata via the -printf
-operand, cause SHA256SUM to be invoked on each file to calculate the SHA-256
-hash. These calculated hashes are contained in extra records in files 310 and
-320, and AWKCLEANER merges them into the regular records in the cleaned files
-330 and 340 (the SHA-256 hashes go into column 13).
+The "--noFindSource" and/or "--noFindBackup" options are also useful when
+network-mounted directories are available locally, but running FIND on them is
+slow. Running the FINDs directly on the respective file servers in SSH sessions
+should be much quicker.
 
-If additional updates of files result from comparisons of SHA-256 hashes,
-they will be executed in step Exec5 (same principle as for the "--byteByByte"
-option).
+The "--noExec" option can be used to prevent execution of the Exec1/2/3/4/5
+scripts by Zaloha itself.
 
-Comparing contents of files via the SHA-256 hashes should be used when the
-source and backup directories reside on different hosts and the FIND scans are
-executed on those hosts (in Remote Backup Mode): The SHA-256 hashes will then
-be calculated on each host locally and the comparisons of file contents require
-just the hashes to be transferred over the network, not the files themselves.
+Last set of useful options are "--no610Hdr" through "--no653Hdr". They instruct
+Zaloha to produce header-less Exec1/2/3/4/5 scripts (i.e. bodies only).
+The headers normally contain definitions used in the bodies of the scripts.
+Header-less scripts can be easily used with alternative headers that contain
+different definitions. This gives much flexibility:
+
+The "command variables" can be assigned to different commands (e.g. cp -> scp).
+Own shell functions can be defined and assigned to the "command variables".
+This makes more elaborate processing possible, as well as calling commands that
+have different order of command line arguments. Next, the "directory variables"
+sourceDir and backupDir can be assigned to empty strings, thus causing the paths
+passed to the commands to be not prefixed by <sourceDir> or <backupDir>.
 
 ###########################################################
 
@@ -1631,72 +1673,72 @@ ZALOHADOCU
 
 # DEFINITIONS OF INDIVIDUAL FILES IN METADATA DIRECTORY OF ZALOHA
 
-f000Base="000_parameters.csv"        # parameters under which Zaloha was invoked and internal variables
+f000Base='000_parameters.csv'        # parameters under which Zaloha was invoked and internal variables
 
-f100Base="100_awkpreproc.awk"        # AWK preprocessor for other AWK programs
-f102Base="102_xtrace2term.awk"       # AWK program for terminal display of shell traces (with control characters escaped), color handling
-f104Base="104_actions2term.awk"      # AWK program for terminal display of actions (with control characters escaped), color handling
-f106Base="106_parser.awk"            # AWK program for parsing of FIND operands and construction of FIND commands
-f110Base="110_cleaner.awk"           # AWK program for handling of raw outputs of FIND (escape tabs and newlines, field 14 handling, SHA-256 record handling)
-f130Base="130_checker.awk"           # AWK program for checking
-f150Base="150_hlinks.awk"            # AWK program for hardlink detection (inode-deduplication)
-f170Base="170_diff.awk"              # AWK program for differences processing
-f190Base="190_postproc.awk"          # AWK program for differences post-processing and splitting off Exec1 and Exec4 actions
+f100Base='100_awkpreproc.awk'        # AWK preprocessor for other AWK programs
+f102Base='102_xtrace2term.awk'       # AWK program for terminal display of shell traces (with control characters escaped), color handling
+f104Base='104_actions2term.awk'      # AWK program for terminal display of actions (with control characters escaped), color handling
+f106Base='106_parser.awk'            # AWK program for parsing of FIND operands and construction of FIND commands
+f110Base='110_cleaner.awk'           # AWK program for handling of raw outputs of FIND (escape tabs and newlines, field 14 handling, SHA-256 record handling)
+f130Base='130_checker.awk'           # AWK program for checking
+f150Base='150_hlinks.awk'            # AWK program for hardlink detection (inode-deduplication)
+f170Base='170_diff.awk'              # AWK program for differences processing
+f190Base='190_postproc.awk'          # AWK program for differences post-processing and splitting off Exec1 and Exec4 actions
 
-f200Base="200_find_lastrun.sh"       # shellscript for FIND on <metaDir>/999_mark_executed
-f210Base="210_find_source.sh"        # shellscript for FIND on <sourceDir>
-f220Base="220_find_backup.sh"        # shellscript for FIND on <backupDir>
+f200Base='200_find_lastrun.sh'       # shellscript for FIND on <metaDir>/999_mark_executed
+f210Base='210_find_source.sh'        # shellscript for FIND on <sourceDir>
+f220Base='220_find_backup.sh'        # shellscript for FIND on <backupDir>
 
-f300Base="300_lastrun.csv"           # output of FIND on <metaDir>/999_mark_executed
-f310Base="310_source_raw.csv"        # raw output of FIND on <sourceDir>
-f320Base="320_backup_raw.csv"        # raw output of FIND on <backupDir>
-f330Base="330_source_clean.csv"      # <sourceDir> metadata clean (escaped tabs and newlines, field 14 handling, SHA-256 record handling)
-f340Base="340_backup_clean.csv"      # <backupDir> metadata clean (escaped tabs and newlines, field 14 handling, SHA-256 record handling)
-f350Base="350_source_s_hlinks.csv"   # <sourceDir> metadata sorted for hardlink detection (inode-deduplication)
-f360Base="360_source_hlinks.csv"     # <sourceDir> metadata after hardlink detection (inode-deduplication)
-f370Base="370_union_s_diff.csv"      # <sourceDir> + <backupDir> metadata united and sorted for differences processing
-f380Base="380_diff.csv"              # result of differences processing
-f390Base="390_diff_r_post.csv"       # differences result reverse sorted for post-processing and splitting off Exec1 and Exec4 actions
+f300Base='300_lastrun.csv'           # output of FIND on <metaDir>/999_mark_executed
+f310Base='310_source_raw.csv'        # raw output of FIND on <sourceDir>
+f320Base='320_backup_raw.csv'        # raw output of FIND on <backupDir>
+f330Base='330_source_clean.csv'      # <sourceDir> metadata clean (escaped tabs and newlines, field 14 handling, SHA-256 record handling)
+f340Base='340_backup_clean.csv'      # <backupDir> metadata clean (escaped tabs and newlines, field 14 handling, SHA-256 record handling)
+f350Base='350_source_s_hlinks.csv'   # <sourceDir> metadata sorted for hardlink detection (inode-deduplication)
+f360Base='360_source_hlinks.csv'     # <sourceDir> metadata after hardlink detection (inode-deduplication)
+f370Base='370_union_s_diff.csv'      # <sourceDir> + <backupDir> metadata united and sorted for differences processing
+f380Base='380_diff.csv'              # result of differences processing
+f390Base='390_diff_r_post.csv'       # differences result reverse sorted for post-processing and splitting off Exec1 and Exec4 actions
 
-f405Base="405_select23.awk"          # AWK program for selection of Exec2 and Exec3 actions
-f410Base="410_exec1.awk"             # AWK program for preparation of shellscripts for Exec1 and Exec4
-f420Base="420_exec2.awk"             # AWK program for preparation of shellscripts for Exec2 and Exec5
-f430Base="430_exec3.awk"             # AWK program for preparation of shellscript for Exec3
-f490Base="490_touch.awk"             # AWK program for preparation of shellscript to touch file 999_mark_executed
+f405Base='405_select23.awk'          # AWK program for selection of Exec2 and Exec3 actions
+f410Base='410_exec1.awk'             # AWK program for preparation of shellscripts for Exec1 and Exec4
+f420Base='420_exec2.awk'             # AWK program for preparation of shellscripts for Exec2 and Exec5
+f430Base='430_exec3.awk'             # AWK program for preparation of shellscript for Exec3
+f490Base='490_touch.awk'             # AWK program for preparation of shellscript to touch file 999_mark_executed
 
-f500Base="500_target_r.csv"          # differences result after splitting off Exec1 and Exec4 actions (= target state) reverse sorted
-f505Base="505_target.csv"            # target state (includes Exec2 and Exec3 actions) of synchronized directories
-f510Base="510_exec1.csv"             # Exec1 actions (reverse sorted)
-f520Base="520_exec2.csv"             # Exec2 actions
-f530Base="530_exec3.csv"             # Exec3 actions
-f540Base="540_exec4.csv"             # Exec4 actions (reverse sorted)
-f550Base="550_exec5.csv"             # Exec5 actions
-f555Base="555_byte_by_byte.csv"      # result of byte by byte comparing of files that appear identical
+f500Base='500_target_r.csv'          # differences result after splitting off Exec1 and Exec4 actions (= target state) reverse sorted
+f505Base='505_target.csv'            # target state (includes Exec2 and Exec3 actions) of synchronized directories
+f510Base='510_exec1.csv'             # Exec1 actions (reverse sorted)
+f520Base='520_exec2.csv'             # Exec2 actions
+f530Base='530_exec3.csv'             # Exec3 actions
+f540Base='540_exec4.csv'             # Exec4 actions (reverse sorted)
+f550Base='550_exec5.csv'             # Exec5 actions
+f555Base='555_byte_by_byte.csv'      # result of byte by byte comparing of files that appear identical
 
-f610Base="610_exec1.sh"              # shellscript for Exec1 (for remote backup to be executed on remote side in one batch)
-f621Base="621_exec2_pre_copy.sh"     # shellscript for Exec2 pre-copy actions (make directories and unlink files, for remote backup to be executed on remote side in one batch)
-f622Base="622_exec2_copy.sh"         # shellscript for Exec2 copy actions (CP or SCP commands to be executed locally)
-f623Base="623_exec2_post_copy.sh"    # shellscript for Exec2 post-copy actions (user+group ownerships and modes, for remote backup to be executed on remote side in one batch)
-f631Base="631_exec3_pre_copy.sh"     # shellscript for Exec3 pre-copy actions (REV_EXISTS checks, make directories)
-f632Base="632_exec3_copy.sh"         # shellscript for Exec3 copy actions (CP or SCP commands)
-f633Base="633_exec3_post_copy.sh"    # shellscript for Exec3 post-copy actions (user+group ownerships and modes)
-f640Base="640_exec4.sh"              # shellscript for Exec4 (for remote backup to be executed on remote side in one batch)
-f651Base="651_exec5_pre_copy.sh"     # shellscript for Exec5 pre-copy actions (make directories and unlink files, for remote backup to be executed on remote side in one batch)
-f652Base="652_exec5_copy.sh"         # shellscript for Exec5 copy actions (CP or SCP commands to be executed locally)
-f653Base="653_exec5_post_copy.sh"    # shellscript for Exec5 post-copy actions (user+group ownerships and modes, for remote backup to be executed on remote side in one batch)
-f690Base="690_touch.sh"              # shellscript to touch file 999_mark_executed
+f610Base='610_exec1.sh'              # shellscript for Exec1 (in Remote Backup Mode to be executed on remote side in one batch)
+f621Base='621_exec2_pre_copy.sh'     # shellscript for Exec2 pre-copy actions (make directories and unlink files, in Remote Backup Mode to be executed on remote side in one batch)
+f622Base='622_exec2_copy.sh'         # shellscript for Exec2 copy actions (CP or SCP commands to be executed locally)
+f623Base='623_exec2_post_copy.sh'    # shellscript for Exec2 post-copy actions (user+group ownerships and modes, in Remote Backup Mode to be executed on remote side in one batch)
+f631Base='631_exec3_pre_copy.sh'     # shellscript for Exec3 pre-copy actions (REV_EXISTS checks, make directories, in Remote Source Mode to be executed on remote side in one batch)
+f632Base='632_exec3_copy.sh'         # shellscript for Exec3 copy actions (CP or SCP commands to be executed locally)
+f633Base='633_exec3_post_copy.sh'    # shellscript for Exec3 post-copy actions (user+group ownerships and modes, in Remote Source Mode to be executed on remote side in one batch)
+f640Base='640_exec4.sh'              # shellscript for Exec4 (in Remote Backup Mode to be executed on remote side in one batch)
+f651Base='651_exec5_pre_copy.sh'     # shellscript for Exec5 pre-copy actions (make directories and unlink files, in Remote Backup Mode to be executed on remote side in one batch)
+f652Base='652_exec5_copy.sh'         # shellscript for Exec5 copy actions (CP or SCP commands to be executed locally)
+f653Base='653_exec5_post_copy.sh'    # shellscript for Exec5 post-copy actions (user+group ownerships and modes, in Remote Backup Mode to be executed on remote side in one batch)
+f690Base='690_touch.sh'              # shellscript to touch file 999_mark_executed
 
-f700Base="700_restore.awk"           # AWK program for preparation of shellscripts for the case of restore
+f700Base='700_restore.awk'           # AWK program for preparation of shellscripts for the case of restore
 
-f800Base="800_restore_dirs.sh"       # for the case of restore: shellscript to restore directories
-f810Base="810_restore_files.sh"      # for the case of restore: shellscript to restore files
-f820Base="820_restore_sym_links.sh"  # for the case of restore: shellscript to restore symbolic links
-f830Base="830_restore_hardlinks.sh"  # for the case of restore: shellscript to restore hardlinks
-f840Base="840_restore_user_own.sh"   # for the case of restore: shellscript to restore user ownerships
-f850Base="850_restore_group_own.sh"  # for the case of restore: shellscript to restore group ownerships
-f860Base="860_restore_mode.sh"       # for the case of restore: shellscript to restore modes (permission bits)
+f800Base='800_restore_dirs.sh'       # for the case of restore: shellscript to restore directories
+f810Base='810_restore_files.sh'      # for the case of restore: shellscript to restore files
+f820Base='820_restore_sym_links.sh'  # for the case of restore: shellscript to restore symbolic links
+f830Base='830_restore_hardlinks.sh'  # for the case of restore: shellscript to restore hardlinks
+f840Base='840_restore_user_own.sh'   # for the case of restore: shellscript to restore user ownerships
+f850Base='850_restore_group_own.sh'  # for the case of restore: shellscript to restore group ownerships
+f860Base='860_restore_mode.sh'       # for the case of restore: shellscript to restore modes (permission bits)
 
-f999Base="999_mark_executed"         # empty touchfile marking execution of actions
+f999Base='999_mark_executed'         # empty touchfile marking execution of actions
 
 ###########################################################
 set -u
@@ -1733,7 +1775,7 @@ function start_progress_by_chars {
 function progress_char {
   if [ ${noProgress} -eq 0 ]; then
     if [ ${progressCurrColNo} -ge 80 ]; then
-      echo -ne "\n    "
+      echo -ne '\n    '
       progressCurrColNo=4
     fi
     echo -n "${1}"
@@ -1744,7 +1786,7 @@ function progress_char {
 function stop_progress {
   if [ ${noProgress} -eq 0 ]; then
     if [ ${progressCurrColNo} -gt 58 ]; then
-      echo -ne "\n    "
+      echo -ne '\n    '
       progressCurrColNo=4
     fi
     echo "${BLANKS60:1:$(( 58 - ${progressCurrColNo} ))} done."
@@ -1815,6 +1857,8 @@ sourceDir=
 sourceDirPassed=0
 backupDir=
 backupDirPassed=0
+sourceUserHost=
+remoteSource=0
 backupUserHost=
 remoteBackup=0
 sshOptions=
@@ -1885,6 +1929,7 @@ do
   case "${tmpVal}" in
     --sourceDir=*)       opt_dupli_check ${sourceDirPassed} "${tmpVal%%=*}";  sourceDir="${tmpVal#*=}";  sourceDirPassed=1 ;;
     --backupDir=*)       opt_dupli_check ${backupDirPassed} "${tmpVal%%=*}";  backupDir="${tmpVal#*=}";  backupDirPassed=1 ;;
+    --sourceUserHost=*)  opt_dupli_check ${remoteSource} "${tmpVal%%=*}";      sourceUserHost="${tmpVal#*=}";  remoteSource=1 ;;
     --backupUserHost=*)  opt_dupli_check ${remoteBackup} "${tmpVal%%=*}";      backupUserHost="${tmpVal#*=}";  remoteBackup=1 ;;
     --sshOptions=*)      opt_dupli_check ${sshOptionsPassed} "${tmpVal%%=*}";  sshOptions="${tmpVal#*=}";  sshOptionsPassed=1 ;;
     --scpOptions=*)      opt_dupli_check ${scpOptionsPassed} "${tmpVal%%=*}";  scpOptions="${tmpVal#*=}";  scpOptionsPassed=1 ;;
@@ -1951,29 +1996,32 @@ if [ ${help} -eq 1 ]; then
   exit 0
 fi
 
-if [ ${remoteBackup} -eq 1 ]; then
+if [ ${remoteSource} -eq 1 ] && [ ${remoteBackup} -eq 1 ]; then
+  error_exit 'Options --sourceUserHost and --backupUserHost may not be used together'
+fi
+if [ ${remoteSource} -eq 1 ] || [ ${remoteBackup} -eq 1 ]; then
   if [ ${byteByByte} -eq 1 ]; then
-    error_exit "Option --byteByByte may not be used in Remote Backup Mode"
+    error_exit 'Option --byteByByte may not be used in Remote Source or Remote Backup Mode'
   fi
   if [ ${extraTouch} -eq 1 ]; then
-    error_exit "Option --extraTouch may not be used in Remote Backup Mode"
+    error_exit 'Option --extraTouch may not be used in Remote Source or Remote Backup Mode'
   fi
 else
   if [ ${sshOptionsPassed} -eq 1 ]; then
-    error_exit "Option --sshOptions may be used only in Remote Backup Mode"
+    error_exit 'Option --sshOptions may be used only in Remote Source or Remote Backup Mode'
   fi
   if [ ${scpOptionsPassed} -eq 1 ]; then
-    error_exit "Option --scpOptions may be used only in Remote Backup Mode"
+    error_exit 'Option --scpOptions may be used only in Remote Source or Remote Backup Mode'
   fi
   if [ ${metaDirTempPassed} -eq 1 ]; then
-    error_exit "Option --metaDirTemp may be used only in Remote Backup Mode"
+    error_exit 'Option --metaDirTemp may be used only in Remote Source or Remote Backup Mode'
   fi
 fi
 if [ ${byteByByte} -eq 1 ] && [ ${sha256} -eq 1 ]; then
-  error_exit "Options --byteByByte and --sha256 may not be used together"
+  error_exit 'Options --byteByByte and --sha256 may not be used together'
 fi
 if [ ${revNew} -eq 1 ] && [ ${noLastRun} -eq 1 ]; then
-  error_exit "Option --revNew may not be used if option --noLastRun is given"
+  error_exit 'Option --revNew may not be used if option --noLastRun is given'
 fi
 if [ ${noExec} -eq 0 ]; then
   if [ ${no610Hdr} -eq 1 ] || \
@@ -1982,32 +2030,32 @@ if [ ${noExec} -eq 0 ]; then
      [ ${no640Hdr} -eq 1 ] || \
      [ ${no651Hdr} -eq 1 ] || [ ${no652Hdr} -eq 1 ] || [ ${no653Hdr} -eq 1 ];
   then
-    error_exit "Options --no610Hdr through --no653Hdr can be used only together with option --noExec"
+    error_exit 'Options --no610Hdr through --no653Hdr can be used only together with option --noExec'
   fi
 fi
 
 if [ ${mawk} -eq 1 ]; then
-  awk="mawk"
-  awkNoBuf="mawk -W interactive"
+  awk='mawk'
+  awkNoBuf='mawk -W interactive'
 elif [ ${lTest} -eq 1 ]; then
-  awk="awk -Lfatal"
-  awkNoBuf="awk -Lfatal"
+  awk='awk -Lfatal'
+  awkNoBuf='awk -Lfatal'
 else
-  awk="awk"
-  awkNoBuf="awk"
+  awk='awk'
+  awkNoBuf='awk'
 fi
 
 ###########################################################
-if [ "" == "${sourceDir}" ]; then
-  error_exit "<sourceDir> is mandatory, get help via Zaloha2.sh --help"
+if [ '' == "${sourceDir}" ]; then
+  error_exit '<sourceDir> is mandatory, get help via Zaloha2.sh --help'
 fi
 if [ "${sourceDir/${TRIPLET}/}" != "${sourceDir}" ]; then
   error_exit "<sourceDir> contains the directory separator triplet (${TRIPLET})"
 fi
-if [ "/" != "${sourceDir:0:1}" ] && [ "./" != "${sourceDir:0:2}" ]; then
+if [ '/' != "${sourceDir:0:1}" ] && [ './' != "${sourceDir:0:2}" ]; then
   sourceDir="./${sourceDir}"
 fi
-if [ "/" != "${sourceDir: -1:1}" ]; then
+if [ '/' != "${sourceDir: -1:1}" ]; then
   sourceDir="${sourceDir}/"
 fi
 sourceDirAwk="${sourceDir//${BSLASHPATTERN}/${TRIPLETB}}"
@@ -2016,27 +2064,28 @@ sourceDirPattAwk="${sourceDirPattAwk//${ASTERISKPATTERN}/${TRIPLETB}${ASTERISK}}
 sourceDirPattAwk="${sourceDirPattAwk//${QUESTIONMARKPATTERN}/${TRIPLETB}${QUESTIONMARK}}"
 sourceDirPattAwk="${sourceDirPattAwk//${LBRACKETPATTERN}/${TRIPLETB}${LBRACKET}}"
 sourceDirPattAwk="${sourceDirPattAwk//${RBRACKETPATTERN}/${TRIPLETB}${RBRACKET}}"
+sourceDirScp="${QUOTE}${sourceDir//${QUOTEPATTERN}/${QUOTEESC}}${QUOTE}"
 sourceDirEsc="${sourceDir//${TAB}/${TRIPLETT}}"
 sourceDirEsc="${sourceDirEsc//${NLINE}/${TRIPLETN}}"
 if [ ${color} -eq 1 ]; then
-  sourceDirTerm="${sourceDirEsc//${CNTRLPATTERN}/${TERMBLUE}${TRIPLETC}${TERMNORM}}"
-  sourceDirTerm="${sourceDirTerm//${TRIPLETT}/${TERMBLUE}${TRIPLETT}${TERMNORM}}"
-  sourceDirTerm="${sourceDirTerm//${TRIPLETN}/${TERMBLUE}${TRIPLETN}${TERMNORM}}"
+  sourceUserHostDirTerm="${sourceDirEsc//${CNTRLPATTERN}/${TERMBLUE}${TRIPLETC}${TERMNORM}}"
+  sourceUserHostDirTerm="${sourceUserHostDirTerm//${TRIPLETT}/${TERMBLUE}${TRIPLETT}${TERMNORM}}"
+  sourceUserHostDirTerm="${sourceUserHostDirTerm//${TRIPLETN}/${TERMBLUE}${TRIPLETN}${TERMNORM}}"
 else
-  sourceDirTerm="${sourceDirEsc//${CNTRLPATTERN}/${TRIPLETC}}"
+  sourceUserHostDirTerm="${sourceDirEsc//${CNTRLPATTERN}/${TRIPLETC}}"
 fi
 
 ###########################################################
-if [ "" == "${backupDir}" ]; then
-  error_exit "<backupDir> is mandatory, get help via Zaloha2.sh --help"
+if [ '' == "${backupDir}" ]; then
+  error_exit '<backupDir> is mandatory, get help via Zaloha2.sh --help'
 fi
 if [ "${backupDir/${TRIPLET}/}" != "${backupDir}" ]; then
   error_exit "<backupDir> contains the directory separator triplet (${TRIPLET})"
 fi
-if [ "/" != "${backupDir:0:1}" ] && [ "./" != "${backupDir:0:2}" ]; then
+if [ '/' != "${backupDir:0:1}" ] && [ './' != "${backupDir:0:2}" ]; then
   backupDir="./${backupDir}"
 fi
-if [ "/" != "${backupDir: -1:1}" ]; then
+if [ '/' != "${backupDir: -1:1}" ]; then
   backupDir="${backupDir}/"
 fi
 backupDirAwk="${backupDir//${BSLASHPATTERN}/${TRIPLETB}}"
@@ -2057,13 +2106,22 @@ else
 fi
 
 ###########################################################
+if [ ${remoteSource} -eq 1 ]; then
+  if [ '' == "${sourceUserHost}" ]; then
+    error_exit '<sourceUserHost> is mandatory if --sourceUserHost option is given'
+  fi
+  sourceUserHostDirTerm="${sourceUserHost}:${sourceUserHostDirTerm}"
+fi
+sourceUserHostAwk="${sourceUserHost//${BSLASHPATTERN}/${TRIPLETB}}"
+
 if [ ${remoteBackup} -eq 1 ]; then
-  if [ "" == "${backupUserHost}" ]; then
-    error_exit "<backupUserHost> is mandatory if --backupUserHost option is given"
+  if [ '' == "${backupUserHost}" ]; then
+    error_exit '<backupUserHost> is mandatory if --backupUserHost option is given'
   fi
   backupUserHostDirTerm="${backupUserHost}:${backupUserHostDirTerm}"
 fi
 backupUserHostAwk="${backupUserHost//${BSLASHPATTERN}/${TRIPLETB}}"
+
 scpOptionsAwk="${scpOptions//${BSLASHPATTERN}/${TRIPLETB}}"
 
 ###########################################################
@@ -2080,7 +2138,7 @@ findGeneralOpsDefault=
 findGeneralOpsDefault="${findGeneralOpsDefault}-ipath ${TRIPLETDSEP}\$RECYCLE.BIN -prune -o "
 findGeneralOpsDefault="${findGeneralOpsDefault}-path ${TRIPLETDSEP}.Trash-[0-9]* -prune -o "
 findGeneralOpsDefault="${findGeneralOpsDefault}-path ${TRIPLETDSEP}lost+found -prune -o "
-if [ "+" == "${findGeneralOps:0:1}" ]; then
+if [ '+' == "${findGeneralOps:0:1}" ]; then
   findGeneralOps="${findGeneralOpsDefault} ${findGeneralOps:1}"
 elif [ ${findGeneralOpsPassed} -eq 0 ]; then
   findGeneralOps="${findGeneralOpsDefault}"
@@ -2094,18 +2152,18 @@ findGeneralOpsEsc="${findGeneralOps//${TAB}/${TRIPLETT}}"
 findGeneralOpsEsc="${findGeneralOpsEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
-metaDirDefaultBase=".Zaloha_metadata"
+metaDirDefaultBase='.Zaloha_metadata'
 metaDirDefault="${backupDir}${metaDirDefaultBase}"
 if [ ${metaDirPassed} -eq 0 ]; then
   metaDir="${metaDirDefault}"
 fi
-if [ "" == "${metaDir}" ]; then
-  error_exit "<metaDir> is mandatory if --metaDir option is given"
+if [ '' == "${metaDir}" ]; then
+  error_exit '<metaDir> is mandatory if --metaDir option is given'
 fi
-if [ "/" != "${metaDir:0:1}" ] && [ "./" != "${metaDir:0:2}" ]; then
+if [ '/' != "${metaDir:0:1}" ] && [ './' != "${metaDir:0:2}" ]; then
   metaDir="./${metaDir}"
 fi
-if [ "/" != "${metaDir: -1:1}" ]; then
+if [ '/' != "${metaDir: -1:1}" ]; then
   metaDir="${metaDir}/"
 fi
 if [ "${metaDir/${TRIPLET}/}" != "${metaDir}" ]; then
@@ -2122,24 +2180,25 @@ metaDirEsc="${metaDir//${TAB}/${TRIPLETT}}"
 metaDirEsc="${metaDirEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
-metaDirTempDefaultBase=".Zaloha_metadata_temp"
+metaDirTempDefaultBase='.Zaloha_metadata_temp'
 metaDirTempDefault="${sourceDir}${metaDirTempDefaultBase}"
 if [ ${metaDirTempPassed} -eq 0 ]; then
   metaDirTemp="${metaDirTempDefault}"
 fi
-if [ "" == "${metaDirTemp}" ]; then
-  error_exit "<metaDirTemp> is mandatory if --metaDirTemp option is given"
+if [ '' == "${metaDirTemp}" ]; then
+  error_exit '<metaDirTemp> is mandatory if --metaDirTemp option is given'
 fi
-if [ "/" != "${metaDirTemp:0:1}" ] && [ "./" != "${metaDirTemp:0:2}" ]; then
+if [ '/' != "${metaDirTemp:0:1}" ] && [ './' != "${metaDirTemp:0:2}" ]; then
   metaDirTemp="./${metaDirTemp}"
 fi
-if [ "/" != "${metaDirTemp: -1:1}" ]; then
+if [ '/' != "${metaDirTemp: -1:1}" ]; then
   metaDirTemp="${metaDirTemp}/"
 fi
 if [ "${metaDirTemp/${TRIPLET}/}" != "${metaDirTemp}" ]; then
   error_exit "<metaDirTemp> contains the directory separator triplet (${TRIPLET})"
 fi
 metaDirTempAwk="${metaDirTemp//${BSLASHPATTERN}/${TRIPLETB}}"
+metaDirTempScp="${QUOTE}${metaDirTemp//${QUOTEPATTERN}/${QUOTEESC}}${QUOTE}"
 metaDirTempEsc="${metaDirTemp//${TAB}/${TRIPLETT}}"
 metaDirTempEsc="${metaDirTempEsc//${NLINE}/${TRIPLETN}}"
 
@@ -2153,37 +2212,56 @@ if [ ${metaDirPassed} -eq 0 ]; then
   findBackupOpsFinalAwk="-path ${TRIPLETDSEP}${metaDirDefaultBase} -prune -o ${findBackupOpsFinalAwk}"
 fi
 
-if [ ${remoteBackup} -eq 1 ]; then
+if [ ${remoteSource} -eq 1 ] || [ ${remoteBackup} -eq 1 ]; then
   if [ ${metaDirTempPassed} -eq 0 ]; then
     findSourceOpsFinalAwk="-path ${TRIPLETDSEP}${metaDirTempDefaultBase} -prune -o ${findSourceOpsFinalAwk}"
     findBackupOpsFinalAwk="-path ${TRIPLETDSEP}${metaDirTempDefaultBase} -prune -o ${findBackupOpsFinalAwk}"
   fi
+fi
+
+if [ ${remoteSource} -eq 1 ]; then
+  metaDirLocal="${metaDir}"
+  metaDirLocalAwk="${metaDirAwk}"
+  metaDirSourceAwk="${metaDirTempAwk}"
+elif [ ${remoteBackup} -eq 1 ]; then
   metaDirLocal="${metaDirTemp}"
   metaDirLocalAwk="${metaDirTempAwk}"
+  metaDirSourceAwk="${metaDirTempAwk}"
 else
   metaDirLocal="${metaDir}"
   metaDirLocalAwk="${metaDirAwk}"
+  metaDirSourceAwk="${metaDirAwk}"
 fi
 
 ###########################################################
 if [ ${noDirChecks} -eq 0 ]; then
-  if [ ! -d "${sourceDir}" ]; then
-    error_exit "<sourceDir> is not a directory"
+  if [ ${remoteSource} -eq 1 ]; then
+    ssh ${sshOptions} "${sourceUserHost}" "[ -d ${sourceDirScp} ]" && tmpVal=$? || tmpVal=$?
+    if [ ${tmpVal} -eq 1 ]; then
+      error_exit '<sourceDir> is not a directory on the remote source host'
+    elif [ ${tmpVal} -ne 0 ]; then
+      error_exit 'SSH command failed'
+    fi
+  else
+    if [ ! -d "${sourceDir}" ]; then
+      error_exit '<sourceDir> is not a directory'
+    fi
   fi
   if [ ${remoteBackup} -eq 1 ]; then
     ssh ${sshOptions} "${backupUserHost}" "[ -d ${backupDirScp} ]" && tmpVal=$? || tmpVal=$?
     if [ ${tmpVal} -eq 1 ]; then
-      error_exit "<backupDir> is not a directory on the remote backup host"
+      error_exit '<backupDir> is not a directory on the remote backup host'
     elif [ ${tmpVal} -ne 0 ]; then
-      error_exit "SSH command failed"
+      error_exit 'SSH command failed'
     fi
   else
     if [ ! -d "${backupDir}" ]; then
-      error_exit "<backupDir> is not a directory"
+      error_exit '<backupDir> is not a directory'
     fi
   fi
 fi
 
+###########################################################
 if [ ! -d "${metaDirLocal}" ]; then
   mkdir -p "${metaDirLocal}"
 fi
@@ -2246,7 +2324,6 @@ f850="${metaDirLocal}${f850Base}"
 f860="${metaDirLocal}${f860Base}"
 f999="${metaDirLocal}${f999Base}"
 
-f310Awk="${metaDirLocalAwk}${f310Base}"
 f510Awk="${metaDirLocalAwk}${f510Base}"
 f520Awk="${metaDirLocalAwk}${f520Base}"
 f530Awk="${metaDirLocalAwk}${f530Base}"
@@ -2269,11 +2346,25 @@ f840Awk="${metaDirLocalAwk}${f840Base}"
 f850Awk="${metaDirLocalAwk}${f850Base}"
 f860Awk="${metaDirLocalAwk}${f860Base}"
 
+# FILES IN TEMPORARY METADATA DIRECTORY OF ZALOHA ON REMOTE SOURCE HOST (IN REMOTE SOURCE MODE)
+if [ ${remoteSource} -eq 1 ]; then
+  ssh ${sshOptions} "${sourceUserHost}" "mkdir -p ${metaDirTempScp}"
+fi
+
+f210RemoteScp="${metaDirTempScp}${f210Base}"
+f310RemoteScp="${metaDirTempScp}${f310Base}"
+f631RemoteScp="${metaDirTempScp}${f631Base}"
+f633RemoteScp="${metaDirTempScp}${f633Base}"
+
+unset copyToRemoteSource
+copyFromRemoteSource=
+removeFromRemoteSource=
+
+# FILES IN METADATA DIRECTORY OF ZALOHA ON REMOTE BACKUP HOST (IN REMOTE BACKUP MODE)
 if [ ${remoteBackup} -eq 1 ]; then
   ssh ${sshOptions} "${backupUserHost}" "mkdir -p ${metaDirScp}"
 fi
 
-# FILES IN METADATA DIRECTORY OF ZALOHA ON REMOTE BACKUP HOST (IN REMOTE BACKUP MODE)
 f000RemoteScp="${metaDirScp}${f000Base}"
 f100RemoteScp="${metaDirScp}${f100Base}"
 f200RemoteScp="${metaDirScp}${f200Base}"
@@ -2307,14 +2398,18 @@ ${awk} '{ print }' << PARAMFILE > "${f000}"
 ${TRIPLET}${FSTAB}sourceDir${FSTAB}${sourceDir}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}sourceDirAwk${FSTAB}${sourceDirAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}sourceDirPattAwk${FSTAB}${sourceDirPattAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}sourceDirScp${FSTAB}${sourceDirScp}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}sourceDirEsc${FSTAB}${sourceDirEsc}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}sourceDirTerm${FSTAB}${sourceDirTerm}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}sourceUserHostDirTerm${FSTAB}${sourceUserHostDirTerm}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDir${FSTAB}${backupDir}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDirAwk${FSTAB}${backupDirAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDirPattAwk${FSTAB}${backupDirPattAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDirScp${FSTAB}${backupDirScp}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupDirEsc${FSTAB}${backupDirEsc}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupUserHostDirTerm${FSTAB}${backupUserHostDirTerm}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}sourceUserHost${FSTAB}${sourceUserHost}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}sourceUserHostAwk${FSTAB}${sourceUserHostAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}remoteSource${FSTAB}${remoteSource}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupUserHost${FSTAB}${backupUserHost}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupUserHostAwk${FSTAB}${backupUserHostAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}remoteBackup${FSTAB}${remoteBackup}${FSTAB}${TRIPLET}
@@ -2358,6 +2453,7 @@ ${TRIPLET}${FSTAB}metaDirEsc${FSTAB}${metaDirEsc}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirPassed${FSTAB}${metaDirPassed}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirTemp${FSTAB}${metaDirTemp}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirTempAwk${FSTAB}${metaDirTempAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}metaDirTempScp${FSTAB}${metaDirTempScp}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirTempEsc${FSTAB}${metaDirTempEsc}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirTempPassed${FSTAB}${metaDirTempPassed}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noDirChecks${FSTAB}${noDirChecks}${FSTAB}${TRIPLET}
@@ -2392,6 +2488,7 @@ ${TRIPLET}${FSTAB}findSourceOpsFinalAwk${FSTAB}${findSourceOpsFinalAwk}${FSTAB}$
 ${TRIPLET}${FSTAB}findBackupOpsFinalAwk${FSTAB}${findBackupOpsFinalAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirLocal${FSTAB}${metaDirLocal}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirLocalAwk${FSTAB}${metaDirLocalAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}metaDirSourceAwk${FSTAB}${metaDirSourceAwk}${FSTAB}${TRIPLET}
 PARAMFILE
 
 copyToRemoteBackup+=( "${f000}" )
@@ -2439,7 +2536,6 @@ BEGIN {
   gsub( /BSLASH/, "\\" )
   gsub( /SLASHREGEX/, "/\\//" )
   gsub( /SLASH/, "\"/\"" )
-  gsub( /DQUOTEPROT/, "\"'\\\"'\"" )
   gsub( /DQUOTE/, "\"\\\"\"" )
   gsub( /TRIPLETDSEPREGEX/, "/\\/\\/\\/d\\//" )
   gsub( /TRIPLETTREGEX/, "/\\/\\/\\/t/" )
@@ -2454,8 +2550,9 @@ BEGIN {
   gsub( /TRIPLETS/, "\"///s\"" )
   gsub( /TRIPLET/, "\"///\"" )
   gsub( /QUOTEREGEX/, "/'/" )
+  gsub( /QUOTEESCSCP/, "\"\\\"'\\\"'\\\"'\\\"'\\\"'\\\"'\\\"'\\\"\"" )
   gsub( /QUOTEESC/, "\"'\\\"'\\\"'\"" )
-  gsub( /QUOTEPROT/, "\"\\\"'\\\"\"" )
+  gsub( /QUOTESCP/, "\"\\\"'\\\"\"" )
   gsub( /ALPHAREGEX/, "/[a-zA-Z]/" )
   gsub( /NUMBERREGEX/, "/^[0123456789]+$/" )
   gsub( /SHA256REGEX/, "/^[0123456789abcdef]{64}$/" )
@@ -2620,49 +2717,63 @@ AWKPARSER
 
 if [ ${noProgress} -eq 0 ]; then
   echo
-  echo "ANALYZING ${sourceDirTerm} AND ${backupUserHostDirTerm}"
-  echo "==========================================="
+  echo "ANALYZING ${sourceUserHostDirTerm} AND ${backupUserHostDirTerm}"
+  echo '==========================================='
 fi
 
-start_progress "Parsing"
+start_progress 'Parsing'
 
-${awk} -f "${f106}"                            \
-       -v sourceBackup="L"                     \
-       -v startPoint="${metaDirAwk}"           \
-       -v followSLinks=0                       \
-       -v findOps="${findLastRunOpsFinalAwk}"  \
-       -v tripletDSepV="${metaDirPattAwk}"     \
-       -v sha256=0                             \
-       -v outFile="${metaDirAwk}${f300Base}"   \
-       -v noProgress=${noProgress}             > "${f200}"
+${awk} -f "${f106}"                                 \
+       -v sourceBackup='L'                          \
+       -v startPoint="${metaDirAwk}"                \
+       -v followSLinks=0                            \
+       -v findOps="${findLastRunOpsFinalAwk}"       \
+       -v tripletDSepV="${metaDirPattAwk}"          \
+       -v sha256=0                                  \
+       -v outFile="${metaDirAwk}${f300Base}"        \
+       -v noProgress=${noProgress}                  > "${f200}"
 
 copyToRemoteBackup+=( "${f200}" )
 
-${awk} -f "${f106}"                            \
-       -v sourceBackup="S"                     \
-       -v startPoint="${sourceDirAwk}"         \
-       -v followSLinks=${followSLinksS}        \
-       -v findOps="${findSourceOpsFinalAwk}"   \
-       -v tripletDSepV="${sourceDirPattAwk}"   \
-       -v sha256=${sha256}                     \
-       -v outFile="${f310Awk}"                 \
-       -v noProgress=${noProgress}             > "${f210}"
+${awk} -f "${f106}"                                 \
+       -v sourceBackup='S'                          \
+       -v startPoint="${sourceDirAwk}"              \
+       -v followSLinks=${followSLinksS}             \
+       -v findOps="${findSourceOpsFinalAwk}"        \
+       -v tripletDSepV="${sourceDirPattAwk}"        \
+       -v sha256=${sha256}                          \
+       -v outFile="${metaDirSourceAwk}${f310Base}"  \
+       -v noProgress=${noProgress}                  > "${f210}"
 
-${awk} -f "${f106}"                            \
-       -v sourceBackup="B"                     \
-       -v startPoint="${backupDirAwk}"         \
-       -v followSLinks=${followSLinksB}        \
-       -v findOps="${findBackupOpsFinalAwk}"   \
-       -v tripletDSepV="${backupDirPattAwk}"   \
-       -v sha256=${sha256}                     \
-       -v outFile="${metaDirAwk}${f320Base}"   \
-       -v noProgress=${noProgress}             > "${f220}"
+copyToRemoteSource+=( "${f210}" )
+
+${awk} -f "${f106}"                                 \
+       -v sourceBackup='B'                          \
+       -v startPoint="${backupDirAwk}"              \
+       -v followSLinks=${followSLinksB}             \
+       -v findOps="${findBackupOpsFinalAwk}"        \
+       -v tripletDSepV="${backupDirPattAwk}"        \
+       -v sha256=${sha256}                          \
+       -v outFile="${metaDirAwk}${f320Base}"        \
+       -v noProgress=${noProgress}                  > "${f220}"
 
 copyToRemoteBackup+=( "${f220}" )
 
 stop_progress
 
-if [ ${remoteBackup} -eq 1 ]; then
+# copy to the remote side
+
+if [ ${remoteSource} -eq 1 ]; then
+
+  progress_scp_meta '>'
+
+  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
+
+  progress_scp_meta '>'
+
+  unset copyToRemoteSource
+
+elif [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
@@ -2673,6 +2784,8 @@ if [ ${remoteBackup} -eq 1 ]; then
   unset copyToRemoteBackup
 
 fi
+
+# FIND scan of the 999 file to obtain time of last run of Zaloha
 
 if [ ${noLastRun} -eq 0 ]; then
 
@@ -2694,25 +2807,39 @@ else
 
   files_not_prepared "${f300}"
 
-  fLastRun="/dev/null"
+  fLastRun='/dev/null'
 
 fi
 
+# FIND scan of <sourceDir>
+
 if [ ${noFindSource} -eq 0 ]; then
 
-  bash "${f210}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+  if [ ${remoteSource} -eq 1 ]; then
+
+    ssh ${sshOptions} "${sourceUserHost}" "bash ${f210RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+
+    copyFromRemoteSource+="${f310RemoteScp} "
+
+  else
+
+    bash "${f210}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+
+  fi
 
 else
 
   if [ ! -f "${f310}" ]; then
-    error_exit "The externally supplied CSV metadata file 310 does not exist"
+    error_exit 'The externally supplied CSV metadata file 310 does not exist'
   fi
 
   if [ ! "${f310}" -nt "${f999}" ]; then
-    error_exit "The externally supplied CSV metadata file 310 is not newer than the last run of Zaloha"
+    error_exit 'The externally supplied CSV metadata file 310 is not newer than the last run of Zaloha'
   fi
 
 fi
+
+# FIND scan of <backupDir>
 
 if [ ${noFindBackup} -eq 0 ]; then
 
@@ -2731,16 +2858,26 @@ if [ ${noFindBackup} -eq 0 ]; then
 else
 
   if [ ! -f "${f320}" ]; then
-    error_exit "The externally supplied CSV metadata file 320 does not exist"
+    error_exit 'The externally supplied CSV metadata file 320 does not exist'
   fi
 
   if [ ! "${f320}" -nt "${f999}" ]; then
-    error_exit "The externally supplied CSV metadata file 320 is not newer than the last run of Zaloha"
+    error_exit 'The externally supplied CSV metadata file 320 is not newer than the last run of Zaloha'
   fi
 
 fi
 
-if [ "" != "${copyFromRemoteBackup}" ]; then
+# copy CSV data back from the remote side
+
+if [ '' != "${copyFromRemoteSource}" ]; then
+
+  progress_scp_meta '<'
+
+  scp -p ${scpQuiet} ${scpOptions} "${sourceUserHost}:${copyFromRemoteSource}" "${metaDirLocal}"
+
+  progress_scp_meta '<'
+
+elif [ '' != "${copyFromRemoteBackup}" ]; then
 
   progress_scp_meta '<'
 
@@ -2872,7 +3009,7 @@ END {
 }
 AWKCLEANER
 
-start_progress "Cleaning"
+start_progress 'Cleaning'
 
 ${awk} -f "${f110}" "${f310}" > "${f330}"
 
@@ -2996,7 +3133,7 @@ END {
 }
 AWKCHECKER
 
-start_progress "Checking"
+start_progress 'Checking'
 
 ${awk} -f "${f130}" -v checkDirs=0 -v sha256=0 "${fLastRun}"
 
@@ -3072,7 +3209,7 @@ AWKHLINKS
 
 if [ ${detectHLinksS} -eq 1 ]; then
 
-  start_progress "Sorting (1)"
+  start_progress 'Sorting (1)'
 
   LC_ALL=C sort -t "${FSTAB}" -k7,7 -k8,8 -k14,14 "${f330}" > "${f350}"
 
@@ -3080,7 +3217,7 @@ if [ ${detectHLinksS} -eq 1 ]; then
 
   optim_csv_after_use "${f330}"
 
-  start_progress "Hardlinks detecting"
+  start_progress 'Hardlinks detecting'
 
   ${awk} -f "${f150}" "${f350}" > "${f360}"
 
@@ -3396,7 +3533,7 @@ END {
 }
 AWKDIFF
 
-start_progress "Sorting (2)"
+start_progress 'Sorting (2)'
 
 LC_ALL=C sort -t "${FSTAB}" -k14,14 -k2,2 "${fDiffInputSource}" "${f340}" > "${f370}"
 
@@ -3404,7 +3541,7 @@ stop_progress
 
 optim_csv_after_use "${fDiffInputSource}" "${f340}"
 
-start_progress "Differences processing"
+start_progress 'Differences processing'
 
 ${awk} -f "${f170}"                       \
        -v noRemove=${noRemove}            \
@@ -3485,7 +3622,7 @@ END {
 }
 AWKPOSTPROC
 
-start_progress "Sorting (3)"
+start_progress 'Sorting (3)'
 
 LC_ALL=C sort -t "${FSTAB}" -k14r,14 -k2,2 "${f380}" > "${f390}"
 
@@ -3493,11 +3630,11 @@ stop_progress
 
 optim_csv_after_use "${f380}"
 
-tmpVal="Exec1"
+tmpVal='Exec1'
 
 if [ ${noRemove} -eq 0 ]; then
 
-  tmpVal+=" and Exec4"
+  tmpVal+=' and Exec4'
 
 else
 
@@ -3558,11 +3695,11 @@ END {
 }
 AWKSELECT23
 
-tmpVal="Exec2"
+tmpVal='Exec2'
 
 if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
-  tmpVal+=", Exec3"
+  tmpVal+=', Exec3'
 
 else
 
@@ -3572,7 +3709,7 @@ fi
 
 if [ ${sha256} -eq 1 ]; then
 
-  tmpVal+=", Exec5"
+  tmpVal+=', Exec5'
 
 elif [ ${byteByByte} -eq 0 ]; then
 
@@ -3600,15 +3737,15 @@ copyToRemoteBackup+=( "${f505}" )
 
 if [ ${byteByByte} -eq 1 ]; then
 
-  start_progress_by_chars "Byte by byte comparing files that appear identical"
+  start_progress_by_chars 'Byte by byte comparing files that appear identical'
 
   exec {fd550}> "${f550}"
   exec {fd555}> "${f555}"
 
   while IFS="${FSTAB}" read -r -a tmpRec   # split record to array (hint: first field has index 0)
   do
-    if [ "${tmpRec[2]}" == "f" ]; then
-      if [ "${tmpRec[1]}" == "OK" ] || [ "${tmpRec[1]:0:4}" == "ATTR" ]; then
+    if [ "${tmpRec[2]}" == 'f' ]; then
+      if [ "${tmpRec[1]}" == 'OK' ] || [ "${tmpRec[1]:0:4}" == 'ATTR' ]; then
 
         tmpVal="${tmpRec[13]}"    # file's path with <sourceDir> or <backupDir> stripped
         tmpVal="${tmpVal//${TRIPLETN}/${NLINE}}"
@@ -3617,23 +3754,23 @@ if [ ${byteByByte} -eq 1 ]; then
         cmp -s "${sourceDir}${tmpVal}" "${backupDir}${tmpVal}" && tmpVal=$? || tmpVal=$?
 
         if [ ${tmpVal} -eq 0 ]; then
-          tmpRec[1]="OK.b"
-          progress_char "."
+          tmpRec[1]='OK.b'
+          progress_char '.'
 
         elif [ ${tmpVal} -eq 1 ]; then
 
           tmpVal="${tmpRec[8]}"   # number of hardlinks <sourceDir> ; number of hardlinks <backupDir>
 
           if [ ${noUnlink} -eq 0 ] && [ ${tmpVal#*;} -ne 1 ]; then
-            tmpRec[1]="unl.UP.b"
+            tmpRec[1]='unl.UP.b'
           else
-            tmpRec[1]="UPDATE.b"
+            tmpRec[1]='UPDATE.b'
           fi
           IFS="${FSTAB}" echo_args_with_ifs "${tmpRec[@]}" >&${fd550}
-          progress_char "#"
+          progress_char '#'
 
         else
-          error_exit "command CMP failed while comparing files byte by byte"
+          error_exit 'command CMP failed while comparing files byte by byte'
         fi
 
         IFS="${FSTAB}" echo_args_with_ifs "${tmpRec[@]}" >&${fd555}
@@ -3697,7 +3834,7 @@ END {
 }
 AWKEXEC1
 
-start_progress "Preparing shellscript for Exec1"
+start_progress 'Preparing shellscript for Exec1'
 
 ${awk} -f "${f410}"                    \
        -v backupDir="${backupDirAwk}"  \
@@ -3717,17 +3854,21 @@ BEGIN {
   pin = 1         # parallel index
   gsub( TRIPLETBREGEX, BSLASH, sourceDir )
   gsub( TRIPLETBREGEX, BSLASH, backupDir )
+  gsub( TRIPLETBREGEX, BSLASH, sourceUserHost )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
   gsub( TRIPLETBREGEX, BSLASH, scpOptions )
   gsub( TRIPLETBREGEX, BSLASH, f621 )
   gsub( TRIPLETBREGEX, BSLASH, f622 )
   gsub( TRIPLETBREGEX, BSLASH, f623 )
+  sourceDirScp = sourceDir
   backupDirScp = backupDir
   gsub( QUOTEREGEX, QUOTEESC, sourceDir )
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
+  gsub( QUOTEREGEX, QUOTEESC, sourceUserHost )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, scpOptions )
-  gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", backupDirScp )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", sourceDirScp )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   if ( 0 == no621Hdr ) {
     BIN_BASH > f621
     print "backupDir='" backupDir "'" > f621
@@ -3752,13 +3893,17 @@ BEGIN {
   }
   if ( 0 == no622Hdr ) {
     BIN_BASH > f622
-    print "sourceDir='" sourceDir "'" > f622
+    if ( 1 == remoteSource ) {
+      print "sourceUserHostDirScp='" sourceUserHost ":'" QUOTESCP "'" sourceDirScp "'" QUOTESCP > f622
+    } else {
+      print "sourceDir='" sourceDir "'" > f622
+    }
     if ( 1 == remoteBackup ) {
-      print "backupUserHostDirScp='" backupUserHost ":'" QUOTEPROT "'" backupDirScp "'" QUOTEPROT > f622
+      print "backupUserHostDirScp='" backupUserHost ":'" QUOTESCP "'" backupDirScp "'" QUOTESCP > f622
     } else {
       print "backupDir='" backupDir "'" > f622
     }
-    if ( 1 == remoteBackup ) {
+    if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
       print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f622
     } else {
       if ( 1 == extraTouch ) {
@@ -3808,7 +3953,9 @@ function apply_attr_dir() {
   }
 }
 function copy_file() {
-  if ( 1 == remoteBackup ) {
+  if ( 1 == remoteSource ) {
+    print "${SCP" pin "} " sScp " " b > f622
+  } else if ( 1 == remoteBackup ) {
     print "${SCP" pin "} " s " " bScp > f622
   } else {
     print "${CP" pin "} " s " " b > f622
@@ -3846,13 +3993,14 @@ function next_pin() {
   gsub( QUOTEREGEX, QUOTEESC, us )
   gsub( QUOTEREGEX, QUOTEESC, gr )
   gsub( QUOTEREGEX, QUOTEESC, pt )
-  gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", ptScp )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", ptScp )
   u = "'" us "'"
   g = "'" gr "'"
   m = "'" md "'"
   s = "\"${sourceDir}\"'" pt "'"
   b = "\"${backupDir}\"'" pt "'"
-  bScp = "\"${backupUserHostDirScp}\"" QUOTEPROT "'" ptScp "'" QUOTEPROT
+  sScp = "\"${sourceUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
+  bScp = "\"${backupUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
   if ( $2 ~ /^MKDIR/ ) {
     print "${MKDIR} " b > f621
     apply_attr_dir()
@@ -3885,20 +4033,22 @@ function next_pin() {
   }
 }
 END {
-  SECTION_LINE > f621
-  SECTION_LINE > f622
   SECTION_LINE > f623
-  close( f621 )
-  close( f622 )
+  SECTION_LINE > f622
+  SECTION_LINE > f621
   close( f623 )
+  close( f622 )
+  close( f621 )
 }
 AWKEXEC2
 
-start_progress "Preparing shellscript for Exec2"
+start_progress 'Preparing shellscript for Exec2'
 
 ${awk} -f "${f420}"                              \
        -v sourceDir="${sourceDirAwk}"            \
        -v backupDir="${backupDirAwk}"            \
+       -v remoteSource=${remoteSource}           \
+       -v sourceUserHost="${sourceUserHostAwk}"  \
        -v remoteBackup=${remoteBackup}           \
        -v backupUserHost="${backupUserHostAwk}"  \
        -v scpOptions="${scpOptionsAwk}"          \
@@ -3928,17 +4078,21 @@ BEGIN {
   pin = 1         # parallel index
   gsub( TRIPLETBREGEX, BSLASH, sourceDir )
   gsub( TRIPLETBREGEX, BSLASH, backupDir )
+  gsub( TRIPLETBREGEX, BSLASH, sourceUserHost )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
   gsub( TRIPLETBREGEX, BSLASH, scpOptions )
   gsub( TRIPLETBREGEX, BSLASH, f631 )
   gsub( TRIPLETBREGEX, BSLASH, f632 )
   gsub( TRIPLETBREGEX, BSLASH, f633 )
+  sourceDirScp = sourceDir
   backupDirScp = backupDir
   gsub( QUOTEREGEX, QUOTEESC, sourceDir )
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
+  gsub( QUOTEREGEX, QUOTEESC, sourceUserHost )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, scpOptions )
-  gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", backupDirScp )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", sourceDirScp )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   if ( 0 == no631Hdr ) {
     BIN_BASH > f631
     print "sourceDir='" sourceDir "'" > f631
@@ -3971,13 +4125,17 @@ BEGIN {
   }
   if ( 0 == no632Hdr ) {
     BIN_BASH > f632
-    print "sourceDir='" sourceDir "'" > f632
+    if ( 1 == remoteSource ) {
+      print "sourceUserHostDirScp='" sourceUserHost ":'" QUOTESCP "'" sourceDirScp "'" QUOTESCP > f632
+    } else {
+      print "sourceDir='" sourceDir "'" > f632
+    }
     if ( 1 == remoteBackup ) {
-      print "backupUserHostDirScp='" backupUserHost ":'" QUOTEPROT "'" backupDirScp "'" QUOTEPROT > f632
+      print "backupUserHostDirScp='" backupUserHost ":'" QUOTESCP "'" backupDirScp "'" QUOTESCP > f632
     } else {
       print "backupDir='" backupDir "'" > f632
     }
-    if ( 1 == remoteBackup ) {
+    if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
       print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f632
     } else {
       if ( 1 == extraTouch ) {
@@ -4033,7 +4191,9 @@ function rev_check_nonex() {
   print "${TEST" pin "} ! -e " s " ] || ${REV_EXISTS_ERR" pin "} '" ptt "'" > f631
 }
 function rev_copy_file() {
-  if ( 1 == remoteBackup ) {
+  if ( 1 == remoteSource ) {
+    print "${SCP" pin "} " b " " sScp > f632
+  } else if ( 1 == remoteBackup ) {
     print "${SCP" pin "} " bScp " " s > f632
   } else {
     print "${CP" pin "} " b " " s > f632
@@ -4074,13 +4234,14 @@ function next_pin() {
   gsub( QUOTEREGEX, QUOTEESC, gr )
   gsub( QUOTEREGEX, QUOTEESC, pt )
   gsub( QUOTEREGEX, QUOTEESC, ptt )
-  gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", ptScp )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", ptScp )
   u = "'" us "'"
   g = "'" gr "'"
   m = "'" md "'"
   s = "\"${sourceDir}\"'" pt "'"
   b = "\"${backupDir}\"'" pt "'"
-  bScp = "\"${backupUserHostDirScp}\"" QUOTEPROT "'" ptScp "'" QUOTEPROT
+  sScp = "\"${sourceUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
+  bScp = "\"${backupUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
   if ( $2 ~ /^REV\.MKDI/ ) {
     rev_check_nonex_dir()
     print "${MKDIR} " s > f631
@@ -4099,22 +4260,24 @@ function next_pin() {
   }
 }
 END {
-  SECTION_LINE > f631
-  SECTION_LINE > f632
   SECTION_LINE > f633
-  close( f631 )
-  close( f632 )
+  SECTION_LINE > f632
+  SECTION_LINE > f631
   close( f633 )
+  close( f632 )
+  close( f631 )
 }
 AWKEXEC3
 
 if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
-  start_progress "Preparing shellscript for Exec3"
+  start_progress 'Preparing shellscript for Exec3'
 
   ${awk} -f "${f430}"                              \
          -v sourceDir="${sourceDirAwk}"            \
          -v backupDir="${backupDirAwk}"            \
+         -v remoteSource=${remoteSource}           \
+         -v sourceUserHost="${sourceUserHostAwk}"  \
          -v remoteBackup=${remoteBackup}           \
          -v backupUserHost="${backupUserHostAwk}"  \
          -v scpOptions="${scpOptionsAwk}"          \
@@ -4133,12 +4296,16 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
   stop_progress
 
+  copyToRemoteSource+=( "${f631}" "${f633}" )
+
 else
 
   files_not_prepared "${f631}" "${f632}" "${f633}"
 
+  removeFromRemoteSource+="${f631RemoteScp} ${f633RemoteScp} "
+
   if [ -e "${f530}" ]; then
-    error_exit "Unexpected, REV actions prepared although neither --revNew nor --revUp option given"
+    error_exit 'Unexpected, REV actions prepared although neither --revNew nor --revUp option given'
   fi
 
 fi
@@ -4147,7 +4314,7 @@ fi
 
 if [ ${noRemove} -eq 0 ]; then
 
-  start_progress "Preparing shellscript for Exec4"
+  start_progress 'Preparing shellscript for Exec4'
 
   ${awk} -f "${f410}"                    \
          -v backupDir="${backupDirAwk}"  \
@@ -4166,7 +4333,7 @@ else
   removeFromRemoteBackup+="${f640RemoteScp} "
 
   if [ -e "${f540}" ]; then
-    error_exit "Unexpected, avoidable removals prepared although --noRemove option given"
+    error_exit 'Unexpected, avoidable removals prepared although --noRemove option given'
   fi
 
 fi
@@ -4175,11 +4342,13 @@ fi
 
 if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
 
-  start_progress "Preparing shellscript for Exec5"
+  start_progress 'Preparing shellscript for Exec5'
 
   ${awk} -f "${f420}"                              \
          -v sourceDir="${sourceDirAwk}"            \
          -v backupDir="${backupDirAwk}"            \
+         -v remoteSource=${remoteSource}           \
+         -v sourceUserHost="${sourceUserHostAwk}"  \
          -v remoteBackup=${remoteBackup}           \
          -v backupUserHost="${backupUserHostAwk}"  \
          -v scpOptions="${scpOptionsAwk}"          \
@@ -4208,7 +4377,7 @@ else
   removeFromRemoteBackup+="${f651RemoteScp} ${f653RemoteScp} "
 
   if [ -e "${f550}" ]; then
-    error_exit "Unexpected, copies resulting from comparing contents of files prepared although neither --byteByByte nor --sha256 option given"
+    error_exit 'Unexpected, copies resulting from comparing contents of files prepared although neither --byteByByte nor --sha256 option given'
   fi
 
 fi
@@ -4229,7 +4398,7 @@ BEGIN {
 }
 AWKTOUCH
 
-start_progress "Preparing shellscript to touch file 999"
+start_progress 'Preparing shellscript to touch file 999'
 
 ${awk} -f "${f490}"                \
        -v metaDir="${metaDirAwk}"  \
@@ -4246,9 +4415,10 @@ BEGIN {
   FS = FSTAB
   pin = 1         # parallel index
   gsub( TRIPLETBREGEX, BSLASH, backupDir )
-  gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
-  gsub( TRIPLETBREGEX, BSLASH, scpOptions )
   gsub( TRIPLETBREGEX, BSLASH, restoreDir )
+  gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
+  gsub( TRIPLETBREGEX, BSLASH, restoreUserHost )
+  gsub( TRIPLETBREGEX, BSLASH, scpOptions )
   gsub( TRIPLETBREGEX, BSLASH, f800 )
   gsub( TRIPLETBREGEX, BSLASH, f810 )
   gsub( TRIPLETBREGEX, BSLASH, f820 )
@@ -4257,11 +4427,14 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, f850 )
   gsub( TRIPLETBREGEX, BSLASH, f860 )
   backupDirScp = backupDir
+  restoreDirScp = restoreDir
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
-  gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
-  gsub( QUOTEREGEX, QUOTEESC, scpOptions )
   gsub( QUOTEREGEX, QUOTEESC, restoreDir )
-  gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", backupDirScp )
+  gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
+  gsub( QUOTEREGEX, QUOTEESC, restoreUserHost )
+  gsub( QUOTEREGEX, QUOTEESC, scpOptions )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
+  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", restoreDirScp )
   if ( 0 == noR800Hdr ) {
     BIN_BASH > f800
     print "restoreDir='" restoreDir "'" > f800
@@ -4271,12 +4444,18 @@ BEGIN {
   if ( 0 == noR810Hdr ) {
     BIN_BASH > f810
     if ( 1 == remoteBackup ) {
-      print "backupUserHostDirScp='" backupUserHost ":'" QUOTEPROT "'" backupDirScp "'" QUOTEPROT > f810
-      print "restoreDir='" restoreDir "'" > f810
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f810
+      print "backupUserHostDirScp='" backupUserHost ":'" QUOTESCP "'" backupDirScp "'" QUOTESCP > f810
     } else {
       print "backupDir='" backupDir "'" > f810
+    }
+    if ( 1 == remoteRestore ) {
+      print "restoreUserHostDirScp='" restoreUserHost ":'" QUOTESCP "'" restoreDirScp "'" QUOTESCP > f810
+    } else {
       print "restoreDir='" restoreDir "'" > f810
+    }
+    if (( 1 == remoteBackup ) || ( 1 == remoteRestore )) {
+      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f810
+    } else {
       print "CP" ONE_TO_MAXPARALLEL "='cp'" > f810
       print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f810
     }
@@ -4341,14 +4520,15 @@ BEGIN {
     gsub( QUOTEREGEX, QUOTEESC, gr )
     gsub( QUOTEREGEX, QUOTEESC, pt )
     gsub( QUOTEREGEX, QUOTEESC, ol )
-    gsub( QUOTEREGEX, "'" QUOTEPROT DQUOTEPROT QUOTEPROT DQUOTEPROT QUOTEPROT "'", ptScp )
+    gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", ptScp )
     u = "'" us "'"
     g = "'" gr "'"
     m = "'" md "'"
     b = "\"${backupDir}\"'" pt "'"
-    bScp = "\"${backupUserHostDirScp}\"" QUOTEPROT "'" ptScp "'" QUOTEPROT
     r = "\"${restoreDir}\"'" pt "'"
     o = "\"${restoreDir}\"'" ol "'"
+    bScp = "\"${backupUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
+    rScp = "\"${restoreUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
     if ( "d" == $3 ) {
       print "${MKDIR} " r > f800
       print "${CHOWN_DIR} " u " " r > f840
@@ -4357,6 +4537,8 @@ BEGIN {
     } else if ( "f" == $3 ) {
       if ( 1 == remoteBackup ) {
         print "${SCP" pin "} " bScp " " r > f810
+      } else if ( 1 == remoteRestore ) {
+        print "${SCP" pin "} " b " " rScp > f810
       } else {
         print "${CP" pin "} " b " " r > f810
         print "${TOUCH" pin "} " b " " r > f810
@@ -4400,28 +4582,30 @@ copyToRemoteBackup+=( "${f700}" )
 
 if [ ${noRestore} -eq 0 ]; then
 
-  start_progress "Preparing shellscripts for case of restore"
+  start_progress 'Preparing shellscripts for case of restore'
 
-  ${awk} -f "${f700}"                              \
-         -v backupDir="${backupDirAwk}"            \
-         -v remoteBackup=${remoteBackup}           \
-         -v backupUserHost="${backupUserHostAwk}"  \
-         -v scpOptions="${scpOptionsAwk}"          \
-         -v restoreDir="${sourceDirAwk}"           \
-         -v f800="${f800Awk}"                      \
-         -v f810="${f810Awk}"                      \
-         -v f820="${f820Awk}"                      \
-         -v f830="${f830Awk}"                      \
-         -v f840="${f840Awk}"                      \
-         -v f850="${f850Awk}"                      \
-         -v f860="${f860Awk}"                      \
-         -v noR800Hdr=${noR800Hdr}                 \
-         -v noR810Hdr=${noR810Hdr}                 \
-         -v noR820Hdr=${noR820Hdr}                 \
-         -v noR830Hdr=${noR830Hdr}                 \
-         -v noR840Hdr=${noR840Hdr}                 \
-         -v noR850Hdr=${noR850Hdr}                 \
-         -v noR860Hdr=${noR860Hdr}                 \
+  ${awk} -f "${f700}"                               \
+         -v backupDir="${backupDirAwk}"             \
+         -v restoreDir="${sourceDirAwk}"            \
+         -v remoteBackup=${remoteBackup}            \
+         -v backupUserHost="${backupUserHostAwk}"   \
+         -v remoteRestore=${remoteSource}           \
+         -v restoreUserHost="${sourceUserHostAwk}"  \
+         -v scpOptions="${scpOptionsAwk}"           \
+         -v f800="${f800Awk}"                       \
+         -v f810="${f810Awk}"                       \
+         -v f820="${f820Awk}"                       \
+         -v f830="${f830Awk}"                       \
+         -v f840="${f840Awk}"                       \
+         -v f850="${f850Awk}"                       \
+         -v f860="${f860Awk}"                       \
+         -v noR800Hdr=${noR800Hdr}                  \
+         -v noR810Hdr=${noR810Hdr}                  \
+         -v noR820Hdr=${noR820Hdr}                  \
+         -v noR830Hdr=${noR830Hdr}                  \
+         -v noR840Hdr=${noR840Hdr}                  \
+         -v noR850Hdr=${noR850Hdr}                  \
+         -v noR860Hdr=${noR860Hdr}                  \
          "${f505}"
 
   stop_progress
@@ -4439,7 +4623,17 @@ fi
 
 ###########################################################
 
-if [ ${remoteBackup} -eq 1 ]; then
+if [ ${remoteSource} -eq 1 ]; then
+
+  progress_scp_meta '>'
+
+  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
+
+  ssh ${sshOptions} "${sourceUserHost}" "rm -f ${removeFromRemoteSource}"
+
+  progress_scp_meta '>'
+
+elif [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
@@ -4462,17 +4656,17 @@ fi
 if [ -s "${f510}" ]; then
   echo
   echo "UNAVOIDABLE REMOVALS FROM ${backupUserHostDirTerm}"
-  echo "==========================================="
+  echo '==========================================='
 
   ${awk} -f "${f104}" -v color=${color} "${f510}"
 
   if [ ${noRemove} -eq 1 ]; then
     echo
-    echo "WARNING: Unavoidable removals prepared regardless of the --noRemove option"
+    echo 'WARNING: Unavoidable removals prepared regardless of the --noRemove option'
   fi
   echo
   read -p "Execute above listed removals from ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-  if [ "Y" == "${tmpVal/y/Y}" ]; then
+  if [ 'Y' == "${tmpVal/y/Y}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
       ssh ${sshOptions} "${backupUserHost}" "bash ${f610RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -4480,20 +4674,20 @@ if [ -s "${f510}" ]; then
       bash "${f610}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     fi
   else
-    error_exit "User requested Zaloha to abort"
+    error_exit 'User requested Zaloha to abort'
   fi
 fi
 
 echo
 echo "TO BE COPIED TO ${backupUserHostDirTerm}"
-echo "==========================================="
+echo '==========================================='
 
 ${awk} -f "${f104}" -v color=${color} "${f520}"
 
 if [ -s "${f520}" ]; then
   echo
   read -p "Execute above listed copies to ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-  if [ "Y" == "${tmpVal/y/Y}" ]; then
+  if [ 'Y' == "${tmpVal/y/Y}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
       ssh ${sshOptions} "${backupUserHost}" "bash ${f621RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -4505,27 +4699,33 @@ if [ -s "${f520}" ]; then
       bash "${f623}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     fi
   else
-    error_exit "User requested Zaloha to abort"
+    error_exit 'User requested Zaloha to abort'
   fi
 fi
 
 if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
   echo
-  echo "TO BE REVERSE-COPIED TO ${sourceDirTerm}"
-  echo "==========================================="
+  echo "TO BE REVERSE-COPIED TO ${sourceUserHostDirTerm}"
+  echo '==========================================='
 
   ${awk} -f "${f104}" -v color=${color} "${f530}"
 
   if [ -s "${f530}" ]; then
     echo
-    read -p "Execute above listed reverse-copies to ${sourceDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-    if [ "Y" == "${tmpVal/y/Y}" ]; then
+    read -p "Execute above listed reverse-copies to ${sourceUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
+    if [ 'Y' == "${tmpVal/y/Y}" ]; then
       echo
-      bash "${f631}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-      bash "${f632}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-      bash "${f633}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      if [ ${remoteSource} -eq 1 ]; then
+        ssh ${sshOptions} "${sourceUserHost}" "bash ${f631RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f632}"                                                | ${awkNoBuf} -f "${f102}" -v color=${color}
+        ssh ${sshOptions} "${sourceUserHost}" "bash ${f633RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      else
+        bash "${f631}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f632}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f633}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      fi
     else
-      error_exit "User requested Zaloha to abort"
+      error_exit 'User requested Zaloha to abort'
     fi
   fi
 fi
@@ -4533,14 +4733,14 @@ fi
 if [ ${noRemove} -eq 0 ]; then
   echo
   echo "TO BE REMOVED FROM ${backupUserHostDirTerm}"
-  echo "==========================================="
+  echo '==========================================='
 
   ${awk} -f "${f104}" -v color=${color} "${f540}"
 
   if [ -s "${f540}" ]; then
     echo
     read -p "Execute above listed removals from ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-    if [ "Y" == "${tmpVal/y/Y}" ]; then
+    if [ 'Y' == "${tmpVal/y/Y}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
         ssh ${sshOptions} "${backupUserHost}" "bash ${f640RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -4548,7 +4748,7 @@ if [ ${noRemove} -eq 0 ]; then
         bash "${f640}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
     else
-      error_exit "User requested Zaloha to abort"
+      error_exit 'User requested Zaloha to abort'
     fi
   fi
 fi
@@ -4556,14 +4756,14 @@ fi
 if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
   echo
   echo "FROM COMPARING CONTENTS OF FILES: TO BE COPIED TO ${backupUserHostDirTerm}"
-  echo "==========================================="
+  echo '==========================================='
 
   ${awk} -f "${f104}" -v color=${color} "${f550}"
 
   if [ -s "${f550}" ]; then
     echo
     read -p "Execute above listed copies to ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-    if [ "Y" == "${tmpVal/y/Y}" ]; then
+    if [ 'Y' == "${tmpVal/y/Y}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
         ssh ${sshOptions} "${backupUserHost}" "bash ${f651RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -4575,7 +4775,7 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
         bash "${f653}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
     else
-      error_exit "User requested Zaloha to abort"
+      error_exit 'User requested Zaloha to abort'
     fi
   fi
 fi
