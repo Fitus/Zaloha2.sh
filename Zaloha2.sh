@@ -440,6 +440,10 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
     the final <findGeneralOps> will be the concatenation of the several
     individual <findGeneralOps> passed in with the options.
 
+--findParallel  ... in the Remote Source and Remote Backup Modes, run the FIND
+    scans of <sourceDir> and <backupDir> in parallel. As the FIND scans run on
+    different hosts in the remote modes, this will save time.
+
 --noExec        ... needed if Zaloha is invoked automatically: do not ask,
     do not execute the actions, but still prepare the scripts. The prepared
     scripts then will not contain shell tracing and the "set -e" instruction.
@@ -1752,6 +1756,18 @@ function error_exit {
 
 trap 'error_exit "Error on line ${LINENO}"' ERR
 
+pidBackgroundJob=
+
+function cleanup_background_job {
+  if [ '' != "${pidBackgroundJob}" ]; then
+    echo "Zaloha2.sh: Killing background job PGID: ${pidBackgroundJob}"
+    2> /dev/null kill -SIGTERM -- "-${pidBackgroundJob}" || :
+    pidBackgroundJob=
+  fi
+}
+
+trap 'cleanup_background_job' EXIT
+
 function opt_dupli_check {
   if [ ${1} -eq 1 ]; then
     error_exit "Option ${2} passed in two or more times"
@@ -1868,6 +1884,7 @@ scpOptionsPassed=0
 findSourceOps=
 findGeneralOps=
 findGeneralOpsPassed=0
+findParallel=0
 noExec=0
 noRemove=0
 revNew=0
@@ -1935,6 +1952,7 @@ do
     --scpOptions=*)      opt_dupli_check ${scpOptionsPassed} "${tmpVal%%=*}";  scpOptions="${tmpVal#*=}";  scpOptionsPassed=1 ;;
     --findSourceOps=*)   findSourceOps+="${tmpVal#*=} " ;;
     --findGeneralOps=*)  findGeneralOps+="${tmpVal#*=} ";  findGeneralOpsPassed=1 ;;
+    --findParallel)      opt_dupli_check ${findParallel} "${tmpVal}";   findParallel=1 ;;
     --noExec)            opt_dupli_check ${noExec} "${tmpVal}";         noExec=1 ;;
     --noRemove)          opt_dupli_check ${noRemove} "${tmpVal}";       noRemove=1 ;;
     --revNew)            opt_dupli_check ${revNew} "${tmpVal}";         revNew=1 ;;
@@ -2013,6 +2031,9 @@ else
   if [ ${scpOptionsPassed} -eq 1 ]; then
     error_exit 'Option --scpOptions may be used only in Remote Source or Remote Backup Mode'
   fi
+  if [ ${findParallel} -eq 1 ]; then
+    error_exit 'Option --findParallel may be used only in Remote Source or Remote Backup Mode'
+  fi
   if [ ${metaDirTempPassed} -eq 1 ]; then
     error_exit 'Option --metaDirTemp may be used only in Remote Source or Remote Backup Mode'
   fi
@@ -2022,6 +2043,11 @@ if [ ${byteByByte} -eq 1 ] && [ ${sha256} -eq 1 ]; then
 fi
 if [ ${revNew} -eq 1 ] && [ ${noLastRun} -eq 1 ]; then
   error_exit 'Option --revNew may not be used if option --noLastRun is given'
+fi
+if [ ${noFindSource} -eq 1 ] || [ ${noFindBackup} -eq 1 ]; then
+  if [ ${findParallel} -eq 1 ]; then
+    error_exit 'Option --findParallel may not be used if options --noFindSource and/or --noFindBackup are given'
+  fi
 fi
 if [ ${noExec} -eq 0 ]; then
   if [ ${no610Hdr} -eq 1 ] || \
@@ -2423,6 +2449,7 @@ ${TRIPLET}${FSTAB}findGeneralOps${FSTAB}${findGeneralOps}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findGeneralOpsAwk${FSTAB}${findGeneralOpsAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findGeneralOpsEsc${FSTAB}${findGeneralOpsEsc}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findGeneralOpsPassed${FSTAB}${findGeneralOpsPassed}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}findParallel${FSTAB}${findParallel}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noExec${FSTAB}${noExec}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noRemove${FSTAB}${noRemove}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}revNew${FSTAB}${revNew}${FSTAB}${TRIPLET}
@@ -2624,7 +2651,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, outFile )
   gsub( QUOTEREGEX, QUOTEESC, startPoint )
   gsub( QUOTEREGEX, QUOTEESC, outFile )
-  cmd = "find"                   # FIND command being constructed
+  cmd = "exec find"              # FIND command being constructed
   wrd = ""                       # word of FIND command being constructed
   iwd = 0                        # flag inside of word (0=before, 1=in, 2=after)
   idq = 0                        # flag inside of double-quote
@@ -2811,6 +2838,28 @@ else
 
 fi
 
+# In case of --findParallel, run the local scan now as background job
+
+if [ ${findParallel} -eq 1 ]; then
+
+  if [ ${remoteSource} -eq 1 ]; then
+
+    set -m
+    ( bash "${f220}" | ${awkNoBuf} -f "${f102}" -v color=${color} ) &
+    pidBackgroundJob=$!
+    set +m
+
+  else
+
+    set -m
+    ( bash "${f210}" | ${awkNoBuf} -f "${f102}" -v color=${color} ) &
+    pidBackgroundJob=$!
+    set +m
+
+  fi
+
+fi
+
 # FIND scan of <sourceDir>
 
 if [ ${noFindSource} -eq 0 ]; then
@@ -2821,7 +2870,7 @@ if [ ${noFindSource} -eq 0 ]; then
 
     copyFromRemoteSource+="${f310RemoteScp} "
 
-  else
+  elif [ ${findParallel} -eq 0 ]; then
 
     bash "${f210}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
@@ -2849,7 +2898,7 @@ if [ ${noFindBackup} -eq 0 ]; then
 
     copyFromRemoteBackup+="${f320RemoteScp} "
 
-  else
+  elif [ ${findParallel} -eq 0 ]; then
 
     bash "${f220}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
@@ -2884,6 +2933,20 @@ elif [ '' != "${copyFromRemoteBackup}" ]; then
   scp -p ${scpQuiet} ${scpOptions} "${backupUserHost}:${copyFromRemoteBackup}" "${metaDirLocal}"
 
   progress_scp_meta '<'
+
+fi
+
+# In case of --findParallel, wait for the background job
+
+if [ ${findParallel} -eq 1 ]; then
+
+  wait ${pidBackgroundJob} && tmpVal=$? || tmpVal=$?
+
+  if [ ${tmpVal} -ne 0 ]; then
+    error_exit "The local FIND scan terminated with unexpected exit status ${tmpVal}"
+  fi
+
+  pidBackgroundJob=
 
 fi
 

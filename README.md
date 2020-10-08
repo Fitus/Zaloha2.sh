@@ -41,8 +41,7 @@ ssh -nNf -o ControlMaster=yes -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@backupho
              --backupDir="test_backup_remote"    \
              --backupUserHost='user@backuphost'  \
              --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
-             --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'  \
-             [other options, see docu]
+             --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
 
 # Terminate the SSH master connection
 ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@backuphost'
@@ -75,8 +74,7 @@ ssh -nNf -o ControlMaster=yes -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@sourceho
              --backupDir="test_backup_local"    \
              --sourceUserHost='user@sourcehost'  \
              --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
-             --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'  \
-             [other options, see docu]
+             --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
 
 # Terminate the SSH master connection
 ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@sourcehost'
@@ -109,6 +107,7 @@ Zaloha.sh&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp
 &nbsp; | New option **--backupUserHost** to activate the Remote Backup Mode via SSH/SCP
 &nbsp; | New option **--sshOptions** to pass additional command-line options to SSH in the remote modes
 &nbsp; | New option **--scpOptions** to pass additional command-line options to SCP in the remote modes
+&nbsp; | New option **--findParallel** to run the local and remote FIND scans in parallel in the remote modes
 Option **--metaDir** | In Remote Backup Mode: allows to place the Zaloha metadata directory on the remote backup host to a different location than the default.
 &nbsp; | New option **--metaDirTemp**: In the remote modes, Zaloha needs a temporary Metadata directory too. This option allows to place it to a different location than the default.
 Shellscript **610** | In Remote Backup Mode: executed on the remote side

@@ -414,6 +414,10 @@ processing time and/or storage space consumption. It can be switched off by the
     the final &lt;findGeneralOps&gt; will be the concatenation of the several
     individual &lt;findGeneralOps&gt; passed in with the options.
 
+<b>--findParallel</b>  ... in the Remote Source and Remote Backup Modes, run the FIND
+    scans of &lt;sourceDir&gt; and &lt;backupDir&gt; in parallel. As the FIND scans run on
+    different hosts in the remote modes, this will save time.
+
 <b>--noExec</b>        ... needed if Zaloha is invoked automatically: do not ask,
     do not execute the actions, but still prepare the scripts. The prepared
     scripts then will not contain shell tracing and the "set -e" instruction.
