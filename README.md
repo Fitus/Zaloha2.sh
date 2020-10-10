@@ -6,13 +6,15 @@ Zaloha2.sh is the next step in development of [Zaloha.sh](https://github.com/Fit
 
  * Some design changes break backward compatibility (see full list of changes below).
  * To keep the original [Zaloha.sh](https://github.com/Fitus/Zaloha.sh) intact for the conservative user.
+ * All functionalities of the original [Zaloha.sh](https://github.com/Fitus/Zaloha.sh) are contained in Zaloha2.sh too.
+ * For new deployments use Zaloha2.sh.
 
 ## Documentation
 
 Full documentation is available both [online](DOCUMENTATION.md) as well as inside of Zaloha2.sh.
 
-For all other documentation and explanatory items (Article, Flowchart, Screenshot, Simple Demo, Performance Data) refer to the original
-[Zaloha.sh](https://github.com/Fitus/Zaloha.sh) repository.
+All other documentation and explanatory items from the original [Zaloha.sh](https://github.com/Fitus/Zaloha.sh) repository are valid for Zaloha2.sh too
+([Article](https://fitus.github.io/), [Interactive Flowchart](https://fitus.github.io/flowchart.html), Usage Examples, Screenshot, Simple Demo, Performance Data).
 
 ## New feature 1: The Remote Backup Mode
 
@@ -129,8 +131,8 @@ Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--
 &nbsp; | New Sanity Check for column 6 not alphanumeric
 &nbsp; | More stringent directories hierarchy check
 &nbsp; | Minor code improvements and optimizations
-Code size 76 kB | Code size 104 kB
-Docu size 78 kB | Docu size 90 kB
+Code size 76 kB | Code size 105 kB
+Docu size 78 kB | Docu size 92 kB
 
 ## License
 MIT License

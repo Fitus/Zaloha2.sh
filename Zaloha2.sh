@@ -56,8 +56,8 @@ Zaloha is a small and simple directory synchronizer:
 To detect which files need synchronization, Zaloha compares file sizes and
 modification times. It is clear that such detection is not 100% waterproof.
 A waterproof solution requires comparing file contents, e.g. via "byte by byte"
-comparison or via SHA-256 hashes. However, such comparing would increase the
-runtime by orders of magnitude. Therefore, it is not enabled by default.
+comparison or via SHA-256 hashes. However, such comparing increases the
+processing time by orders of magnitude. Therefore, it is not enabled by default.
 Section Advanced Use of Zaloha describes two alternatives how to enable it.
 
 Zaloha asks to confirm actions before they are executed, i.e. prepared actions
@@ -188,18 +188,18 @@ Exec2:
 Files and directories which exist only in <sourceDir> are copied to <backupDir>
 (action codes NEW and MKDIR).
 
-Zaloha "updates" files in <backupDir> (action code UPDATE) if files exist under
-same paths in both <sourceDir> and <backupDir> and the comparisons of file sizes
-and modification times result in needed synchronization of the files. If the
-files in <backupDir> are multiply linked (hardlinked), Zaloha removes (unlinks)
-them first (action code unl.UP), to prevent "updating" multiply linked files,
-which could lead to follow-up effects. This unlinking can be switched off via
-the "--noUnlink" option.
+Further, Zaloha "updates" files in <backupDir> (action code UPDATE) if files
+exist under same paths in both <sourceDir> and <backupDir> and the comparisons
+of file sizes and modification times result in needed synchronization of the
+files. If the files in <backupDir> are multiply linked (hardlinked), Zaloha
+removes (unlinks) them first (action code unl.UP), to prevent "updating"
+multiply linked files, which could lead to follow-up effects. This unlinking
+can be switched off via the "--noUnlink" option.
 
 If the files differ only in attributes (u=user ownership, g=group ownership,
-m=mode), and attribute synchronization is switched on via the "--pUser",
-"--pGroup" and "--pMode" options, then only these attributes will be
-synchronized (action code ATTR). However, this is an optional feature, because:
+m=mode), and the synchronization of attributes is switched on via the "--pUser",
+"--pGroup" and "--pMode" options, then these attributes will be synchronized
+(action code ATTR). However, this is an optional feature, because:
 (1) the filesystem of <backupDir> might not be capable of storing these
 attributes, or (2) it may be wanted that all files and directories in
 <backupDir> are owned by the user who runs Zaloha.
@@ -300,12 +300,12 @@ The unavoidable removals must unconditionally occur first, also in Exec1 step.
 But what about the remaining (avoidable) removals: Imagine a scenario when a
 directory is renamed in <sourceDir>: If all removals were executed in Exec1,
 then <backupDir> would transition through a state (namely between Exec1 and
-Exec2) when the backup copy of the directory is already removed (under the old
+Exec2) where the backup copy of the directory is already removed (under the old
 name), but not yet created (under the new name). To minimize the chance for such
 transient states to occur, the avoidable removals are postponed to Exec4.
 
 Advise to this topic: In case of bigger reorganizations of <sourceDir>, also
-e.g. in case when a directory with large content is renamed, it is much better
+e.g. in case when a directory with large contents is renamed, it is much better
 to prepare a rename script (more generally speaking: a migration script) and
 apply it to both <sourceDir> and <backupDir>, instead of letting Zaloha perform
 massive copying followed by massive removing.
@@ -414,11 +414,11 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 
 --sshOptions=<sshOptions> are additional command-line options for the
     SSH command, separated by spaces. Typical usage is explained in section
-    Advanced Use of Zaloha - Remote Source and Backup Modes.
+    Advanced Use of Zaloha - Remote Source and Remote Backup Modes.
 
 --scpOptions=<scpOptions> are additional command-line options for the
     SCP command, separated by spaces. Typical usage is explained in section
-    Advanced Use of Zaloha - Remote Source and Backup Modes.
+    Advanced Use of Zaloha - Remote Source and Remote Backup Modes.
 
 --findSourceOps=<findSourceOps> are additional operands for the FIND command
     that scans <sourceDir>, to be used to exclude files or subdirectories in
@@ -474,14 +474,15 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     on <sourceDir>
 
 --ok2s          ... tolerate +/- 2 seconds differences due to FAT rounding of
-                    modification times to nearest 2 seconds (explained in
-                    Special Cases section below). This option is necessary only
-                    if Zaloha is unable to determine the FAT file system from
-                    the FIND output (column 6).
+                    modification times to nearest 2 seconds (special case
+                    [SCC_FAT_01] explained in Special Cases section below).
+                    This option is necessary only if Zaloha is unable to
+                    determine the FAT file system from the FIND output
+                    (column 6).
 
 --ok3600s       ... additional tolerable offset of modification time differences
-                    of exactly +/- 3600 seconds (explained in Special Cases
-                    section below)
+                    of exactly +/- 3600 seconds (special case [SCC_FAT_01]
+                    explained in Special Cases section below)
 
 --byteByByte    ... compare "byte by byte" files that appear identical (more
                     precisely, files for which either "no action" (OK) or just
@@ -504,7 +505,8 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     writing to them
 
 --extraTouch    ... use cp + touch instead of cp --preserve=timestamps
-                    (explained in Special Cases section below)
+                    (special case [SCC_OTHER_01] explained in Special Cases
+                    section below)
 
 --pUser         ... synchronize user ownerships in <backupDir>
                     based on <sourceDir>
@@ -703,7 +705,7 @@ Difference between <findSourceOps> and <findGeneralOps>
 excluded by <findSourceOps> and files exist in <backupDir> under same paths,
 then Zaloha evaluates the files in <backupDir> as obsolete (= removes them,
 unless the "--noRemove" option is given, or eventually even attempts to
-reverse-synchronize them (which leads to one of the corner cases
+reverse-synchronize them (which leads to corner case [SCC_FIND_01]
 (see the Corner Cases section))).
 
 On the contrary, the files excluded by <findGeneralOps> are not visible to
@@ -800,7 +802,7 @@ Let's assume, that this does not work as expected:
 
     --findSourceOps='( -type f -a -name *.tmp ) -o'
 
-The find command to debug this is:
+The FIND command to debug this is:
 
     find <sourceDir> '(' -type f -a -name '*.tmp' ')' -o -printf 'path: %P\n'
 
@@ -968,14 +970,14 @@ synchronized on the objects the symbolic links point to, not on the symbolic
 links themselves.
 
 Corner case removal operations: Eventual removal operations on places where the
-structure is held together by symbolic links are problematic. Zaloha will
+structure is held together by the symbolic links are problematic. Zaloha will
 prepare the REMOVE (rm -f) or RMDIR (rmdir) operations due to the objects having
 been reported to it as files or directories. However, if the objects are in
 reality symbolic links, "rm -f" removes the symbolic links themselves, not the
-referenced objects, and "rmdir" fails altogether.
+referenced objects, and "rmdir" fails with the "Not a directory" error.
 
 Corner case loops: Loops can occur if symbolic links are in play. Zaloha can
-only rely on the FIND commands to handle them (= prevent running forever).
+only rely on the FIND command to handle them (= prevent running forever).
 GNU find, for example, contains an internal mechanism to handle loops.
 
 Technical note for the case when the start point directories themselves are
@@ -1047,6 +1049,29 @@ The process which invokes Zaloha in automatic regime should function as follows
 
 SPECIAL AND CORNER CASES
 
+Cases related to the use of FIND
+--------------------------------
+Ideally, the FIND scans return data about all objects in the directories.
+However, the options "--findSourceOps" and "--findGeneralOps" may cause parts
+of the reality to be hidden (masked) from Zaloha, leading to these cases:
+
+[SCC_FIND_01]
+Corner case "--revNew" with "--findSourceOps": If files exist under same paths
+in both <sourceDir> and <backupDir>, and in <sourceDir> the files are masked by
+<findSourceOps> and in <backupDir> the corresponding files are newer than the
+last run of Zaloha, Zaloha prepares REV.NEW actions (that are wrong). This is
+an error which Zaloha is unable to detect. Hence, the shellscripts for Exec3
+contain REV_EXISTS checks that throw errors in such situations.
+
+[SCC_FIND_02]
+Corner case RMDIR with "--findGeneralOps": If objects exist under a given
+subdirectory of <backupDir> and all of them are masked by <findGeneralOps>,
+and Zaloha prepares a RMDIR on that subdirectory, then that RMDIR fails with
+the "Directory not empty" error.
+
+Cases related to the FAT filesystem
+-----------------------------------
+[SCC_FAT_01]
 To detect which files need synchronization, Zaloha compares file sizes and
 modification times. If the file sizes differ, synchronization is needed.
 The modification times are more complex:
@@ -1076,91 +1101,56 @@ The modification times are more complex:
    obtained). This last note is relevant especially if <metaDir> is located
    outside of <backupDir> (which is achievable via the "--metaDir" option).
 
-In some situations (e.g. Linux Samba + Linux Samba client),
-cp --preserve=timestamps does not preserve modification timestamps (unless on
-empty files). In that case, Zaloha should be instructed (via the "--extraTouch"
-option) to use subsequent touch commands instead, which is a more robust
-solution. In the scripts for case of restore, touch commands are used
-unconditionally.
-
-Corner case REV.NEW with namespace on <sourceDir> needed for REV.MKDI or REV.NEW
-actions is occupied by objects of conflicting types: The files in <backupDir>
-will not be reverse-copied to <sourceDir>, but removed. As these files must be
-newer than the last run of Zaloha, the actions will be REMOVE.!.
-
-Corner case REV.NEW with "--findSourceOps": If files exist under same paths in
-both <sourceDir> and <backupDir>, and in <sourceDir> the files is masked by
-<findSourceOps> and in <backupDir> the corresponding files are newer than the
-last run of Zaloha, the REV.NEW actions prepared by Zaloha are wrong. This is
-an error which Zaloha is unable to detect. Hence, the shellscript for Exec3
-contains a test that throws errors in such situations.
-
+[SCC_FAT_02]
 Corner case REV.UP with "--ok3600s": The "--ok3600s" option makes it harder
 to determine which file is newer (decision UPDATE vs REV.UP). The implemented
 solution for that case is that for REV.UP, the <backupDir> file must be newer
 by more than 3600 seconds (plus an eventual 2 secs FAT tolerance).
 
+[SCC_FAT_03]
+Corner case FAT uppercase conversions: Explained by following example:
+
+The source directory is on a Linux ext4 filesystem and contains the files
+SOUBOR.TXT, SOUBOR.txt, soubor.TXT and soubor.txt in one of the subdirectories.
+The backup directory is on a FAT-formatted USB flash drive. The synchronization
+executes without visible problems, but in the backup directory, only SOUBOR.TXT
+exists after the synchronization.
+
+What happened is that the OS/filesystem re-directed all four copy operations
+into SOUBOR.TXT. Also, after three overwrites, the backup of only one of the
+four source files exists. Zaloha detects this situation on next synchronization
+and prepares new copy commands, but they again hit the same problem.
+
+The only effective solution seems to be the renaming of the source files to
+avoid this type of name conflict.
+
+Last note: A similar phenomenon has been observed in the Cygwin environment
+running on Windows/ntfs too.
+
+Cases related to hardlinked files
+---------------------------------
+[SCC_HLINK_01]
 Corner case "--detectHLinksS" with new link(s) to same file added or removed:
 The assignment of what link will be kept as "file" (f) and what links will be
 tagged as "hardlinks" (h) in CSV metadata after AWKHLINKS may change, leading
 to NEW and REMOVE actions.
 
+[SCC_HLINK_02]
 Corner case REV.UP with "--detectHLinksS": Zaloha supports reverse-update of
 only the first links in <sourceDir> (the ones that stay tagged as "files" (f)
-in CSV metadata after AWKHLINKS).
+in CSV metadata after AWKHLINKS). See also [SCC_CONFL_02].
 
-Corner case UPDATE or REV.UP with hardlinked file: Updating a multiply linked
+[SCC_HLINK_03]
+Corner case UPDATE or REV.UP with hardlinked files: Updating a multiply linked
 (hardlinked) file means that the new contents will appear under all other links,
 and that may lead to follow-up effects.
 
-Corner case update of attributes with hardlinked file: Updated attributes on a
+[SCC_HLINK_04]
+Corner case update of attributes with hardlinked files: Updated attributes on a
 multiply linked (hardlinked) file will (with exceptions on some filesystem
 types) appear under all other links, and that may lead to follow-up effects.
 
-Corner case "--detectHLinksS" with objects in <backupDir> under same paths as
-the seconds, third etc. hardlinks in <sourceDir> (the ones that will be tagged
-as "hardlinks" (h) in CSV metadata after AWKHLINKS): The objects in <backupDir>
-will be (unavoidably) removed to avoid misleading situations in that for a
-hardlinked file in <sourceDir>, <backupDir> would contain a different object
-(or eventually even a different file) under same path.
-
-Corner case objects in <backupDir> under same paths as symbolic links in
-<sourceDir>: The objects in <backupDir> will be (unavoidably) removed to avoid
-misleading situations in that for a symbolic link in <sourceDir> that points
-to an object, <backupDir> would contain a different object under same path.
-The only exception is when the objects in <backupDir> are symbolic links too,
-in which case they will be kept (but not changed). Please see section
-Following Symbolic Links on when symbolic links are not reported as
-symbolic links by FIND.
-
-Corner case objects in <backupDir> under same paths as other objects (p/s/c/b/D)
-in <sourceDir>: The objects in <backupDir> will be (unavoidably) removed except
-when they are other objects (p/s/c/b/D) too, in which case they will be kept
-(but not changed).
-
-Corner case if the Metadata directory is in its default location (= no option
-"--metaDir" is given) and <sourceDir>/.Zaloha_metadata exists as well (which
-may be the case in chained backups (= backups of backups)): It will be excluded.
-If a backup of that directory is needed as well, it should be solved separately.
-Hint: if the secondary backup starts one directory higher, then this exclusion
-will not occur anymore. Why be concerned about backups of the Metadata directory
-of the primary backup: keep in mind that Zaloha synchronizes to <backupDir> only
-files and directories and keeps other objects in metadata only.
-
-Corner case FAT uppercase conversions: The widespread FAT filesystem has been
-already mentioned as a source of challenges. Here is another one: The source
-directory is on a Linux ext4 filesystem and contains the files SOUBOR.TXT,
-SOUBOR.txt, soubor.TXT and soubor.txt in one of the subdirectories. The backup
-directory is on a FAT-formatted USB flash drive. The synchronization executes
-without visible problems, but in the backup directory, only SOUBOR.TXT exists.
-What happened is that the OS/filesystem re-directed all four copy operations
-into SOUBOR.TXT. Also, after three overwrites, the backup of only one of the
-four source files exists. Zaloha detects this situation on next synchronization
-and prepares new copy commands, but they again hit the same problem. The only
-effective solution seems to be the renaming of the source files to avoid this
-type of name conflict. Last note: A similar phenomenon has been observed in the
-Cygwin environment running on Windows/ntfs too.
-
+[SCC_HLINK_05]
 Corner case if same directory is passed in as <sourceDir> and <backupDir>:
 Zaloha will issue a warning about identical objects. No actions will be prepared
 due to both directories being identical, except when the directory contains
@@ -1172,6 +1162,61 @@ detected hardlinks (h) it prepares removals of the corresponding files in
 <backupDir>, which is the same directory. The hardlinks can be restored by
 restore script 830_restore_hardlinks.sh.
 
+Cases related to conflicting object type combinations
+-----------------------------------------------------
+[SCC_CONFL_01]
+Corner case REV.NEW with namespace on <sourceDir> needed for REV.MKDI or REV.NEW
+actions is occupied by objects of conflicting types: The files in <backupDir>
+will not be reverse-copied to <sourceDir>, but removed. As these files must be
+newer than the last run of Zaloha, the actions will be REMOVE.!.
+
+[SCC_CONFL_02]
+Corner case "--detectHLinksS" with objects in <backupDir> under same paths as
+the seconds, third etc. hardlinks in <sourceDir> (the ones that will be tagged
+as "hardlinks" (h) in CSV metadata after AWKHLINKS): The objects in <backupDir>
+will be (unavoidably) removed to avoid misleading situations in that for a
+hardlinked file in <sourceDir>, <backupDir> would contain a different object
+(or eventually even a different file) under same path.
+
+[SCC_CONFL_03]
+Corner case objects in <backupDir> under same paths as symbolic links in
+<sourceDir>: The objects in <backupDir> will be (unavoidably) removed to avoid
+misleading situations in that for a symbolic link in <sourceDir> that points
+to an object, <backupDir> would contain a different object under same path.
+The only exception is when the objects in <backupDir> are symbolic links too,
+in which case they will be kept (but not changed). Please see section
+Following Symbolic Links on when symbolic links are not reported as
+symbolic links by FIND.
+
+[SCC_CONFL_04]
+Corner case objects in <backupDir> under same paths as other objects (p/s/c/b/D)
+in <sourceDir>: The objects in <backupDir> will be (unavoidably) removed except
+when they are other objects (p/s/c/b/D) too, in which case they will be kept
+(but not changed).
+
+Other cases
+-----------
+[SCC_OTHER_01]
+In some situations (e.g. Linux Samba + Linux Samba client),
+cp --preserve=timestamps does not preserve modification timestamps (unless on
+empty files). In that case, Zaloha should be instructed (via the "--extraTouch"
+option) to use subsequent extra TOUCH commands instead, which is a more robust
+solution. In the scripts for case of restore, extra TOUCH commands are used
+unconditionally.
+
+[SCC_OTHER_02]
+Corner case if the Metadata directory is in its default location (= no option
+"--metaDir" is given) and <sourceDir>/.Zaloha_metadata exists as well (which
+may be the case in chained backups (= backups of backups)): It will be excluded.
+If a backup of that directory is needed as well, it should be solved separately.
+Hint: if the secondary backup starts one directory higher, then this exclusion
+will not occur anymore.
+
+Why be concerned about backups of the Metadata directory of the primary backup:
+keep in mind that Zaloha synchronizes to <backupDir> only files and directories
+and keeps other objects in metadata (and the restore scripts) only.
+
+[SCC_OTHER_03]
 It is possible (but not recommended) for <backupDir> to be a subdirectory of
 <sourceDir> and vice versa. In such cases, FIND expressions to avoid recursive
 copying must be passed in via <findGeneralOps>.
@@ -1190,7 +1235,7 @@ The AWK program AWKPARSER parses the FIND operands assembled from
 The outputs of running these FIND commands are tab-separated CSV metadata files
 that contain all information needed for following steps. These CSV metadata
 files, however, must first be processed by AWKCLEANER to handle (escape)
-eventual tabs and newlines in filenames.
+eventual tabs and newlines in filenames + perform other required preparations.
 
 The cleaned CSV metadata files are then checked by AWKCHECKER for unexpected
 deviations (in which case an error is thrown and the processing stops).
@@ -1209,7 +1254,7 @@ AWKDIFF evaluates this situation (as well as records from objects existing in
 only one of the directories), and writes target state of synchronized
 directories with actions to reach that target state.
 
-The output of AWKDIFF is then sorted by filename in reverse order (so that
+The output of AWKDIFF is then sorted by file's paths in reverse order (so that
 parent directories come after their children) and post-processed by AWKPOSTPROC.
 AWKPOSTPROC modifies actions on parent directories of files to REV.NEW and
 objects to KEEP only in <backupDir>.
@@ -1449,7 +1494,7 @@ The SSH master connection is typically created as follows:
 
   ssh -nNf -o ControlMaster=yes                   \
            -o ControlPath='~/.ssh/cm-%r@%h:%p'    \
-           <remoteHost>
+           <remoteUserHost>
 
 To instruct the SSH and SCP commands invoked by Zaloha to use the SSH master
 connection, use the options "--sshOptions" and "--scpOptions":
@@ -1459,7 +1504,7 @@ connection, use the options "--sshOptions" and "--scpOptions":
 
 After use, the SSH master connection should be terminated as follows:
 
-  ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' <remoteHost>
+  ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' <remoteUserHost>
 
 Windows / Cygwin notes:
 -----------------------
@@ -1476,7 +1521,7 @@ The remote source or backup directory <sourceDir> or <backupDir>, if relative,
 is relative to the SSH login directory of the user on the remote host.
 
 To use a different port, use also the options "--sshOptions" and "--scpOptions"
-to pass the options "-p <backupPort>" to SSH and "-P <backupPort>" to SCP.
+to pass the options "-p <port>" to SSH and "-P <port>" to SCP.
 
 The SCP commands that copy from remote to local may require the "-T" option
 to disable the (broken?) SCP-internal check that results in false findings like
@@ -1547,7 +1592,7 @@ a network with high latency: sending out the small file takes microseconds,
 but waiting for the network round-trip to finish takes milliseconds. Also, the
 process is idle most of the time, and the network capacity is under-utilized.
 In such cases, also typically when many small files are copied over a network,
-running the processes in parallel will speed up the process significantly.
+running the copy commands in parallel will speed up the process significantly.
 
 Zaloha provides support for parallel operations of up to 8 parallel processes
 (constant MAXPARALLEL). How to utilize this support:
@@ -1608,7 +1653,7 @@ Own shell functions can be defined and assigned to the "command variables".
 This makes more elaborate processing possible, as well as calling commands that
 have different order of command line arguments. Next, the "directory variables"
 sourceDir and backupDir can be assigned to empty strings, thus causing the paths
-passed to the commands to be not prefixed by <sourceDir> or <backupDir>.
+passed to the commands to be not prefixed by <sourceDir> and <backupDir>.
 
 ###########################################################
 
@@ -1644,7 +1689,7 @@ Unauthorized access via symbolic links
 --------------------------------------
 The attacker might create symbolic links to locations to which he has no access,
 hoping that within the restore process (which he might explicitly request for
-this purpose) the linked content will be restored to his home directory ...
+this purpose) the linked contents will be restored to his home directory ...
 
 Mitigation with Zaloha: do not follow symbolic links on <sourceDir> (do not use
                         the "--followSLinksS" option)
