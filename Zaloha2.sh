@@ -2626,6 +2626,7 @@ BEGIN {
   gsub( /QUOTEESC/, "\"'\\\"'\\\"'\"" )
   gsub( /QUOTESCP/, "\"\\\"'\\\"\"" )
   gsub( /ALPHAREGEX/, "/[a-zA-Z]/" )
+  gsub( /SIGNNUMBERREGEX/, "/^[+-]?[0123456789]+$/" )
   gsub( /NUMBERREGEX/, "/^[0123456789]+$/" )
   gsub( /SHA256REGEX/, "/^[0123456789abcdef]{64}$/" )
   gsub( /ZEROREGEX/, "/^0+$/" )
@@ -3132,12 +3133,27 @@ stop_progress
 ###########################################################
 ${awk} -f "${f100}" << 'AWKCHECKER' > "${f130}"
 DEFINE_ERROR_EXIT
+DEFINE_WARNING
 BEGIN {
   FS = FSTAB
-  ltp = "d"           # file's type of last record
-  lpt = "M" TRIPLETS  # file's path of last record
+  cfd = 0       # count of files on given device
+  cfc = 0       # count of files on given device with correct modification times
+  tp = "d"
+  dv = ""
+  pp = "M" TRIPLETS
+}
+function mtimes_check() {
+  if (( 0 != cfd ) && ( 0 == cfc )) {
+    warning( "All " cfd " files on device " dv " have zero (or negative) modification times" )
+  }
 }
 {
+  # switch to a new device: check modification times of files
+  if ( dv != $7 ) {
+    mtimes_check()
+    cfd = 0
+    cfc = 0
+  }
   if ( 17 != NF ) {
     error_exit( "Unexpected, cleaned CSV file does not contain 17 columns" )
   }
@@ -3153,11 +3169,14 @@ BEGIN {
   if ( $4 !~ NUMBERREGEX ) {
     error_exit( "Unexpected, column 4 of cleaned file is not numeric" )
   }
-  if ( $5 !~ NUMBERREGEX ) {
+  if ( $5 !~ SIGNNUMBERREGEX ) {
     error_exit( "Unexpected, column 5 of cleaned file is not numeric" )
   }
-  if (( "f" == $3 ) && ( $5 ~ ZEROREGEX )) {
-    error_exit( "Unexpected, column 5 of cleaned file is zero for a file" )
+  if ( "f" == $3 ) {
+    cfd = cfd + 1
+    if ( $5 > 0 ) {      # correct (expected) modification time is a positive integer
+      cfc = cfc + 1
+    }
   }
   if ( $6 !~ ALPHAREGEX ) {
     error_exit( "Unexpected, column 6 of cleaned file is not alphanumeric" )
@@ -3213,31 +3232,33 @@ BEGIN {
   # this directories hierarchy check might reveal some <findSourceOps> and/or <findGeneralOps> errors,
   # e.g. subdirectory excluded but its contents not excluded
   if ( 1 == checkDirs ) {
-    pt = "M" TRIPLETS "M" TRIPLETS $14
-    n = split( pt, a, TRIPLETSREGEX )
+    p = "M" TRIPLETS "M" TRIPLETS $14
+    n = split( p, a, TRIPLETSREGEX )
     if ( "" != a[n] ) {
       error_exit( "Unexpected, path (column 14) ends incorrectly" )
     }
-    tt = substr( pt, 1, length( pt ) - TRIPLETSLENGTH - length( a[n-1] ))
-    if ( tt == lpt ) {
-      if ( "d" != ltp ) {
-        gsub( TRIPLETSREGEX, SLASH, pt )
-        pt = substr( pt, 5, length( pt ) - 5 )
-        error_exit( "Unexpected: Parent of this object is not a directory: " pt )
+    t = substr( p, 1, length( p ) - TRIPLETSLENGTH - length( a[n-1] ))
+    if ( pp == t ) {
+      if ( "d" != tp ) {
+        gsub( TRIPLETSREGEX, SLASH, p )
+        p = substr( p, 5, length( p ) - 5 )
+        error_exit( "Unexpected: Parent of this object is not a directory: " p )
       }
-    } else if ( 1 != index( lpt, tt )) {
-      gsub( TRIPLETSREGEX, SLASH, pt )
-      pt = substr( pt, 5, length( pt ) - 5 )
-      error_exit( "Unexpected: Parent directory record missing before: " pt )
+    } else if ( 1 != index( pp, t )) {
+      gsub( TRIPLETSREGEX, SLASH, p )
+      p = substr( p, 5, length( p ) - 5 )
+      error_exit( "Unexpected: Parent directory record missing before: " p )
     }
-    ltp = $3
-    lpt = pt
+    tp = $3   # previous record's column  3: file's type (d = directory, f = file, [h = hardlink], l = symbolic link, p/s/c/b/D = other)
+    pp = p    # previous record's column 14: file's path with <sourceDir> or <backupDir> stripped + prefix added
   }
+  dv = $7     # previous record's column  7: device number the file is on
 }
 END {
   if (( 1 == checkDirs ) && ( 0 == NR )) {
     error_exit( "Unexpected, no records in file (at least the start point directory should be there)" )
   }
+  mtimes_check()
 }
 AWKCHECKER
 
