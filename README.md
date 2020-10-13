@@ -91,6 +91,19 @@ invoke SHA256SUM on each encountered file. Note that the SHA-256 hashes of the f
 Also no contents of files are transferred over the network, just the SHA-256 hashes.
 The SHA-256 hashes are then compared to detect files that appear identical but their contents differ.
 
+## Performance tuning in the Remote Backup and Remote Source Modes
+
+* The option **--noRestore** switches off creation of the restore scripts. If you do not need the restore scripts, use this option
+  to shorten the analysis phase.
+* The option **--mawk** instructs Zaloha to use **mawk** instead of (usually) **GNU awk**. **mawk** is an AWK implementation based on
+  a bytecode interpreter and is significantly faster. To utilize **mawk**, it must be installed on the local system.
+* The option **--findParallel** instructs Zaloha to run the FIND scans of the source and backup directories in parallel.
+  As these scans run on different hosts, this will further save time.
+* Last, **scp** can be tuned for higher speed by choosing suitable ciphers and compression levels. See **scp** documentation for details.
+  Use Zaloha's **--scpOptions** option to pass additional command-line options to **scp** commands invoked by Zaloha.
+  Faster **scp** will shorten both the analysis phase (faster copying of CSV metadata over the network) as well as the actual execution phase.
+* Eventually use the High performance SSH/SCP – HPN-SSH, that removes the performance limitation due to statically defined internal flow control buffers.
+
 ## Obtain Zaloha2.sh
 
 The simplest way: Under the green button "<b>Code</b>" above, choose "<b>Download ZIP</b>".
@@ -130,6 +143,7 @@ Option **--noExec4Hdr** | Renamed to **--no640Hdr**
 Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--no652Hdr** and **--no653Hdr**
 &nbsp; | New Sanity Check for column 6 not alphanumeric
 &nbsp; | More stringent directories hierarchy check
+&nbsp; | More tolerant check of zero modification times of files
 &nbsp; | Minor code improvements and optimizations
 Code size 76 kB | Code size 105 kB
 Docu size 78 kB | Docu size 92 kB
