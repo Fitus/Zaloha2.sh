@@ -2464,6 +2464,9 @@ unset copyToRemoteBackup
 copyFromRemoteBackup=
 removeFromRemoteBackup=
 
+# MAKE SURE THAT EVENTUAL OBSOLETE LOCAL-MODE SHELLSCRIPTS 620, 630 AND 650 FROM Zaloha.sh ARE REMOVED
+files_not_prepared "${metaDirLocal}620_exec2.sh" "${metaDirLocal}630_exec3.sh" "${metaDirLocal}650_exec5.sh"
+
 ###########################################################
 ${awk} '{ print }' << PARAMFILE > "${f000}"
 ${TRIPLET}${FSTAB}sourceDir${FSTAB}${sourceDir}${FSTAB}${TRIPLET}

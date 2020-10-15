@@ -102,7 +102,7 @@ The SHA-256 hashes are then compared to detect files that appear identical but t
 * Last, **scp** can be tuned for higher speed by choosing suitable ciphers and compression levels. See **scp** documentation for details.
   Use Zaloha's **--scpOptions** option to pass additional command-line options to **scp** commands invoked by Zaloha.
   Faster **scp** will shorten both the analysis phase (faster copying of CSV metadata over the network) as well as the actual execution phase.
-* Eventually use the High performance SSH/SCP – HPN-SSH, that removes the performance limitation due to statically defined internal flow control buffers.
+* Eventually use the High performance SSH/SCP – HPN-SSH that removes the performance limitation due to statically defined internal flow control buffers.
 
 ## Obtain Zaloha2.sh
 
