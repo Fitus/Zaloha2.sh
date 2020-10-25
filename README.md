@@ -141,12 +141,13 @@ Option **--noExec2Hdr** | Replaced by finer-grained options **--no621Hdr**, **--
 Option **--noExec3Hdr** | Replaced by finer-grained options **--no631Hdr**, **--no632Hdr** and **--no633Hdr**
 Option **--noExec4Hdr** | Renamed to **--no640Hdr**
 Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--no652Hdr** and **--no653Hdr**
+&nbsp; | Ability to process **all symbolic links** (even those with target paths that contain three or more consective slashes). The implied change is additional escaping of slashes by ///s in column 16 for symbolic links.
 &nbsp; | New Sanity Check for column 6 not alphanumeric
 &nbsp; | More stringent directories hierarchy check
 &nbsp; | More tolerant check of zero modification times of files
 &nbsp; | Minor code improvements and optimizations
-Code size 76 kB | Code size 105 kB
-Docu size 78 kB | Docu size 92 kB
+Code size 76 kB | Code size 109 kB
+Docu size 78 kB | Docu size 94 kB
 
 ## License
 MIT License

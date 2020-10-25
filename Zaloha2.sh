@@ -384,6 +384,41 @@ The production of the shellscripts for the case of restore may cause increased
 processing time and/or storage space consumption. It can be switched off by the
 "--noRestore" option.
 
+In case of need, the shellscripts for the case of restore can also be prepared
+manually by running the AWK program 700 on the CSV metadata file 505:
+
+  awk -f "<AWK program 700>"                  \
+      -v backupDir="<backupDir>"              \
+      -v restoreDir="<restoreDir>"            \
+      -v remoteBackup=<0 or 1>                \
+      -v backupUserHost="<backupUserHost>"    \
+      -v remoteRestore=<0 or 1>               \
+      -v restoreUserHost="<restoreUserHost>"  \
+      -v scpOptions="<scpOptions>"            \
+      -v f800="<script 800 to be created>"    \
+      -v f810="<script 810 to be created>"    \
+      -v f820="<script 820 to be created>"    \
+      -v f830="<script 830 to be created>"    \
+      -v f840="<script 840 to be created>"    \
+      -v f850="<script 850 to be created>"    \
+      -v f860="<script 860 to be created>"    \
+      -v noR800Hdr=<0 or 1>                   \
+      -v noR810Hdr=<0 or 1>                   \
+      -v noR820Hdr=<0 or 1>                   \
+      -v noR830Hdr=<0 or 1>                   \
+      -v noR840Hdr=<0 or 1>                   \
+      -v noR850Hdr=<0 or 1>                   \
+      -v noR860Hdr=<0 or 1>                   \
+      "<CSV metadata file 505>"
+
+Note 1: All filenames/paths should begin with a "/" (if absolute) or with a "./"
+(if relative), and <snapDir> and <restoreDir> must end with a terminating "/".
+
+Note 2: If any of the filenames/paths passed into AWK as variables (<snapDir>,
+<restoreDir> and the <scripts 8xx to be created>) contain backslashes as "weird
+characters", replace them by ///b. The AWK program 700 will replace ///b back
+to backslashes inside.
+
 ###########################################################
 
 INVOCATION
@@ -975,6 +1010,11 @@ referenced objects, and "rmdir" fails with the "Not a directory" error.
 Corner case loops: Loops can occur if symbolic links are in play. Zaloha can
 only rely on the FIND command to handle them (= prevent running forever).
 GNU find, for example, contains an internal mechanism to handle loops.
+
+Corner case multiple visits: Although loops are prevented by GNU find, multiple
+visits to objects are not. This happens when objects can be reached both via the
+regular path hierarchy as well as via symbolic links that point to that objects
+(or to their parent directories).
 
 Technical note for the case when the start point directories themselves are
 symbolic links: Zaloha passes all start point directories to FIND with trailing
@@ -1669,9 +1709,8 @@ writable by a potential attacker:
 
 Backup media overflow attack via hardlinks
 ------------------------------------------
-The attacker might create a huge file in his home directory and hardlink it
-many thousands times, hoping that the backup program writes all copies to
-the backup media ...
+The attacker might hard-link a huge file many times, hoping that the backup
+program writes each link as a physical copy to the backup media ...
 
 Mitigation with Zaloha: perform hardlink detection (use the "--detectHLinksS"
 option)
@@ -1679,8 +1718,8 @@ option)
 Backup media overflow attack via symbolic links
 -----------------------------------------------
 The attacker might create many symbolic links pointing to directories with huge
-contents outside of his home directory, hoping that the backup program writes
-all linked contents to the backup media ...
+contents (or to huge files), hoping that the backup program writes the contents
+pointed to by each such link as a physical copy to the backup media ...
 
 Mitigation with Zaloha: do not follow symbolic links on <sourceDir> (do not use
                         the "--followSLinksS" option)

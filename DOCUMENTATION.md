@@ -356,6 +356,41 @@ key variables for whole script are defined (and can be adjusted as needed).
 The production of the shellscripts for the case of restore may cause increased
 processing time and/or storage space consumption. It can be switched off by the
 <b>--noRestore</b> option.
+
+In case of need, the shellscripts for the case of restore can also be prepared
+manually by running the AWK program 700 on the CSV metadata file 505:
+
+  awk -f "&lt;AWK program 700&gt;"                  \
+      -v backupDir="&lt;backupDir&gt;"              \
+      -v restoreDir="&lt;restoreDir&gt;"            \
+      -v remoteBackup=&lt;0 or 1&gt;                \
+      -v backupUserHost="&lt;backupUserHost&gt;"    \
+      -v remoteRestore=&lt;0 or 1&gt;               \
+      -v restoreUserHost="&lt;restoreUserHost&gt;"  \
+      -v scpOptions="&lt;scpOptions&gt;"            \
+      -v f800="&lt;script 800 to be created&gt;"    \
+      -v f810="&lt;script 810 to be created&gt;"    \
+      -v f820="&lt;script 820 to be created&gt;"    \
+      -v f830="&lt;script 830 to be created&gt;"    \
+      -v f840="&lt;script 840 to be created&gt;"    \
+      -v f850="&lt;script 850 to be created&gt;"    \
+      -v f860="&lt;script 860 to be created&gt;"    \
+      -v noR800Hdr=&lt;0 or 1&gt;                   \
+      -v noR810Hdr=&lt;0 or 1&gt;                   \
+      -v noR820Hdr=&lt;0 or 1&gt;                   \
+      -v noR830Hdr=&lt;0 or 1&gt;                   \
+      -v noR840Hdr=&lt;0 or 1&gt;                   \
+      -v noR850Hdr=&lt;0 or 1&gt;                   \
+      -v noR860Hdr=&lt;0 or 1&gt;                   \
+      "&lt;CSV metadata file 505&gt;"
+
+Note 1: All filenames/paths should begin with a "/" (if absolute) or with a "./"
+(if relative), and &lt;snapDir&gt; and &lt;restoreDir&gt; must end with a terminating "/".
+
+Note 2: If any of the filenames/paths passed into AWK as variables (&lt;snapDir&gt;,
+&lt;restoreDir&gt; and the &lt;scripts 8xx to be created&gt;) contain backslashes as "weird
+characters", replace them by ///b. The AWK program 700 will replace ///b back
+to backslashes inside.
 </pre>
 
 
@@ -951,6 +986,11 @@ referenced objects, and "rmdir" fails with the "Not a directory" error.
 Corner case loops: Loops can occur if symbolic links are in play. Zaloha can
 only rely on the FIND command to handle them (= prevent running forever).
 GNU find, for example, contains an internal mechanism to handle loops.
+
+Corner case multiple visits: Although loops are prevented by GNU find, multiple
+visits to objects are not. This happens when objects can be reached both via the
+regular path hierarchy as well as via symbolic links that point to that objects
+(or to their parent directories).
 
 Technical note for the case when the start point directories themselves are
 symbolic links: Zaloha passes all start point directories to FIND with trailing
@@ -1654,9 +1694,8 @@ writable by a potential attacker:
 
 Backup media overflow attack via hardlinks
 ------------------------------------------
-The attacker might create a huge file in his home directory and hardlink it
-many thousands times, hoping that the backup program writes all copies to
-the backup media ...
+The attacker might hard-link a huge file many times, hoping that the backup
+program writes each link as a physical copy to the backup media ...
 
 Mitigation with Zaloha: perform hardlink detection (use the <b>--detectHLinksS</b>
 option)
@@ -1664,8 +1703,8 @@ option)
 Backup media overflow attack via symbolic links
 -----------------------------------------------
 The attacker might create many symbolic links pointing to directories with huge
-contents outside of his home directory, hoping that the backup program writes
-all linked contents to the backup media ...
+contents (or to huge files), hoping that the backup program writes the contents
+pointed to by each such link as a physical copy to the backup media ...
 
 Mitigation with Zaloha: do not follow symbolic links on &lt;sourceDir&gt; (do not use
                         the <b>--followSLinksS</b> option)
