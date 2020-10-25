@@ -234,10 +234,6 @@ given, symbolic links on <sourceDir> are followed and the referenced files and
 directories are synchronized to <backupDir>. See section Following Symbolic
 Links for details.
 
-  Note: Zaloha is unable to process symbolic links which have not normalized
-  target paths with three or more consecutive slashes (for details, see section
-  on Handling of Weird Characters in Filenames further below).
-
 Zaloha does not synchronize other types of objects in <sourceDir> (named pipes,
 sockets, special devices, etc). These objects are considered to be part of the
 operating system or parts of applications, and dedicated scripts for their
@@ -1384,12 +1380,16 @@ symbolic links: Unfortunately, the OSes do not normalize target paths with
 consecutive slashes while writing them to the filesystems, and FIND does not
 normalize them either in the -printf %l output. Actually, there seem to be no
 constraints on the target paths of symbolic links. Hence, the /// triplets can
-occur there as well. The solution is the exclusion of such symbolic links from
-the processing, by the FIND expressions -lname *///* -o. This "just" removes the
-security vulnerability arising from such symbolic links, but does not introduce
-their proper processing. A proper processing is theoretically possible, but the
-costs (extra FIND's and program code) would be hardly justifiable in light of
-the debatable practical relevance of such symbolic links.
+occur there as well. This prohibits their safe processing within the above
+described FIND-AWKCLEANER algorithm. Instead, a special solution is implemented
+that involves running an auxiliary script (205_read_slink.sh) for each symbolic
+link that contains three or more consecutive slashes (found by FIND expression
+-lname *///*). This script obtains the target paths of such symbolic links and
+escapes slashes by ///s, tabs by ///t and newlines by ///n. The escaped target
+paths are then put into extra records in files 310 and 320, and AWKCLEANER
+merges them into the regular records (column 16) in the cleaned files 330
+and 340. Performance-wise, running the auxiliary script 205 per symbolic link
+is not ideal, but the above described symbolic links should be rare occurrences.
 
 An additional challenge is passing of variable values to AWK. During its
 lexical parsing, AWK interprets backslash-led escape sequences. To avoid this,
@@ -1735,6 +1735,7 @@ f170Base='170_diff.awk'              # AWK program for differences processing
 f190Base='190_postproc.awk'          # AWK program for differences post-processing and splitting off Exec1 and Exec4 actions
 
 f200Base='200_find_lastrun.sh'       # shellscript for FIND on <metaDir>/999_mark_executed
+f205Base='205_read_slink.sh'         # auxiliary script to obtain target paths of symbolic links that contain three or more consecutive slashes
 f210Base='210_find_source.sh'        # shellscript for FIND on <sourceDir>
 f220Base='220_find_backup.sh'        # shellscript for FIND on <backupDir>
 
@@ -2275,8 +2276,8 @@ metaDirTempEsc="${metaDirTempEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
 findLastRunOpsFinalAwk="-path ${TRIPLETDSEP}${f999Base} -type f"
-findSourceOpsFinalAwk="${findGeneralOpsAwk} ${findSourceOpsAwk} -lname ${ASTERISK}${TRIPLET}${ASTERISK} -o"
-findBackupOpsFinalAwk="${findGeneralOpsAwk} -lname ${ASTERISK}${TRIPLET}${ASTERISK} -o"
+findSourceOpsFinalAwk="${findGeneralOpsAwk} ${findSourceOpsAwk}"
+findBackupOpsFinalAwk="${findGeneralOpsAwk}"
 
 if [ ${metaDirPassed} -eq 0 ]; then
   findSourceOpsFinalAwk="-path ${TRIPLETDSEP}${metaDirDefaultBase} -prune -o ${findSourceOpsFinalAwk}"
@@ -2348,6 +2349,7 @@ f150="${metaDirLocal}${f150Base}"
 f170="${metaDirLocal}${f170Base}"
 f190="${metaDirLocal}${f190Base}"
 f200="${metaDirLocal}${f200Base}"
+f205="${metaDirLocal}${f205Base}"
 f210="${metaDirLocal}${f210Base}"
 f220="${metaDirLocal}${f220Base}"
 f300="${metaDirLocal}${f300Base}"
@@ -2422,10 +2424,11 @@ if [ ${remoteSource} -eq 1 ]; then
   ssh ${sshOptions} "${sourceUserHost}" "mkdir -p ${metaDirTempScp}"
 fi
 
-f210RemoteScp="${metaDirTempScp}${f210Base}"
-f310RemoteScp="${metaDirTempScp}${f310Base}"
-f631RemoteScp="${metaDirTempScp}${f631Base}"
-f633RemoteScp="${metaDirTempScp}${f633Base}"
+f205RemoteSourceScp="${metaDirTempScp}${f205Base}"
+f210RemoteSourceScp="${metaDirTempScp}${f210Base}"
+f310RemoteSourceScp="${metaDirTempScp}${f310Base}"
+f631RemoteSourceScp="${metaDirTempScp}${f631Base}"
+f633RemoteSourceScp="${metaDirTempScp}${f633Base}"
 
 unset copyToRemoteSource
 copyFromRemoteSource=
@@ -2436,29 +2439,30 @@ if [ ${remoteBackup} -eq 1 ]; then
   ssh ${sshOptions} "${backupUserHost}" "mkdir -p ${metaDirScp}"
 fi
 
-f000RemoteScp="${metaDirScp}${f000Base}"
-f100RemoteScp="${metaDirScp}${f100Base}"
-f200RemoteScp="${metaDirScp}${f200Base}"
-f220RemoteScp="${metaDirScp}${f220Base}"
-f300RemoteScp="${metaDirScp}${f300Base}"
-f320RemoteScp="${metaDirScp}${f320Base}"
-f505RemoteScp="${metaDirScp}${f505Base}"
-f610RemoteScp="${metaDirScp}${f610Base}"
-f621RemoteScp="${metaDirScp}${f621Base}"
-f623RemoteScp="${metaDirScp}${f623Base}"
-f640RemoteScp="${metaDirScp}${f640Base}"
-f651RemoteScp="${metaDirScp}${f651Base}"
-f653RemoteScp="${metaDirScp}${f653Base}"
-f690RemoteScp="${metaDirScp}${f690Base}"
-f700RemoteScp="${metaDirScp}${f700Base}"
-f800RemoteScp="${metaDirScp}${f800Base}"
-f810RemoteScp="${metaDirScp}${f810Base}"
-f820RemoteScp="${metaDirScp}${f820Base}"
-f830RemoteScp="${metaDirScp}${f830Base}"
-f840RemoteScp="${metaDirScp}${f840Base}"
-f850RemoteScp="${metaDirScp}${f850Base}"
-f860RemoteScp="${metaDirScp}${f860Base}"
-f999RemoteScp="${metaDirScp}${f999Base}"
+f000RemoteBackupScp="${metaDirScp}${f000Base}"
+f100RemoteBackupScp="${metaDirScp}${f100Base}"
+f200RemoteBackupScp="${metaDirScp}${f200Base}"
+f205RemoteBackupScp="${metaDirScp}${f205Base}"
+f220RemoteBackupScp="${metaDirScp}${f220Base}"
+f300RemoteBackupScp="${metaDirScp}${f300Base}"
+f320RemoteBackupScp="${metaDirScp}${f320Base}"
+f505RemoteBackupScp="${metaDirScp}${f505Base}"
+f610RemoteBackupScp="${metaDirScp}${f610Base}"
+f621RemoteBackupScp="${metaDirScp}${f621Base}"
+f623RemoteBackupScp="${metaDirScp}${f623Base}"
+f640RemoteBackupScp="${metaDirScp}${f640Base}"
+f651RemoteBackupScp="${metaDirScp}${f651Base}"
+f653RemoteBackupScp="${metaDirScp}${f653Base}"
+f690RemoteBackupScp="${metaDirScp}${f690Base}"
+f700RemoteBackupScp="${metaDirScp}${f700Base}"
+f800RemoteBackupScp="${metaDirScp}${f800Base}"
+f810RemoteBackupScp="${metaDirScp}${f810Base}"
+f820RemoteBackupScp="${metaDirScp}${f820Base}"
+f830RemoteBackupScp="${metaDirScp}${f830Base}"
+f840RemoteBackupScp="${metaDirScp}${f840Base}"
+f850RemoteBackupScp="${metaDirScp}${f850Base}"
+f860RemoteBackupScp="${metaDirScp}${f860Base}"
+f999RemoteBackupScp="${metaDirScp}${f999Base}"
 
 unset copyToRemoteBackup
 copyFromRemoteBackup=
@@ -2697,9 +2701,9 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, startPoint )
   gsub( TRIPLETBREGEX, BSLASH, findOps )
   gsub( TRIPLETBREGEX, BSLASH, tripletDSepV )
-  gsub( TRIPLETBREGEX, BSLASH, outFile )
+  gsub( TRIPLETBREGEX, BSLASH, metaDir )
   gsub( QUOTEREGEX, QUOTEESC, startPoint )
-  gsub( QUOTEREGEX, QUOTEESC, outFile )
+  gsub( QUOTEREGEX, QUOTEESC, metaDir )
   cmd = "exec find"              # FIND command being constructed
   wrd = ""                       # word of FIND command being constructed
   iwd = 0                        # flag inside of word (0=before, 1=in, 2=after)
@@ -2755,6 +2759,14 @@ BEGIN {
   if ( 1 == idq ) {
     error_exit( "<findOps> contains unpaired double quote" )
   }
+  if ( 1 == readSLinks ) {
+    cmd = cmd " '(' -lname '*" TRIPLET "*' -printf '"
+    cmd = cmd TRIPLET                                            # SLINK-TARGET column 1: leading field
+    cmd = cmd "\\tSLINK-TARGET"                                  # SLINK-TARGET column 2: SLINK-TARGET constant
+    cmd = cmd "\\t' -exec bash '" metaDir f205Base "' '{}' ';'"  # SLINK-TARGET column 3: escaped target path of symbolic link
+    cmd = cmd " -printf '\\t" TRIPLET                            # SLINK-TARGET column 4: terminator field
+    cmd = cmd "\\n' -false ')' -o"
+  }
   if ( 1 == sha256 ) {
     cmd = cmd " '(' -type f -printf '"
     cmd = cmd TRIPLET                           # SHA-256 column 1: leading field
@@ -2764,24 +2776,24 @@ BEGIN {
     cmd = cmd "\\n' -false ')' -o"
   }
   cmd = cmd " -printf '"
-  cmd = cmd TRIPLET             # column  1: leading field
-  cmd = cmd "\\t" sourceBackup  # column  2: S = <sourceDir>, B = <backupDir>, L = last run record
-  cmd = cmd "\\t%y"             # column  3: file's type (d = directory, f = file, [h = hardlink], l = symbolic link, p/s/c/b/D = other)
-  cmd = cmd "\\t%s"             # column  4: file's size in bytes
-  cmd = cmd "\\t%Ts"            # column  5: file's last modification time, seconds since 01/01/1970
-  cmd = cmd "\\t%F"             # column  6: type of the filesystem the file is on
-  cmd = cmd "\\t%D"             # column  7: device number the file is on
-  cmd = cmd "\\t%i"             # column  8: file's inode number
-  cmd = cmd "\\t%n"             # column  9: number of hardlinks to file
-  cmd = cmd "\\t%u"             # column 10: file's user name
-  cmd = cmd "\\t%g"             # column 11: file's group name
-  cmd = cmd "\\t%m"             # column 12: file's permission bits (in octal)
-  cmd = cmd "\\t0"              # column 13: SHA-256 hash of file's contents (if --sha256 option is given)
-  cmd = cmd "\\t%P"             # column 14: file's path with <sourceDir> or <backupDir> stripped
-  cmd = cmd "\\t" TRIPLET       # column 15: terminator field
-  cmd = cmd "\\t%l"             # column 16: target path of symbolic link [path of first link (the "file") for a hardlink]
-  cmd = cmd "\\t" TRIPLET       # column 17: terminator field
-  cmd = cmd "\\n' > '" outFile "'"
+  cmd = cmd TRIPLET                  # column  1: leading field
+  cmd = cmd "\\t" sourceBackup       # column  2: S = <sourceDir>, B = <backupDir>, L = last run record
+  cmd = cmd "\\t%y"                  # column  3: file's type (d = directory, f = file, [h = hardlink], l = symbolic link, p/s/c/b/D = other)
+  cmd = cmd "\\t%s"                  # column  4: file's size in bytes
+  cmd = cmd "\\t%Ts"                 # column  5: file's last modification time, seconds since 01/01/1970
+  cmd = cmd "\\t%F"                  # column  6: type of the filesystem the file is on
+  cmd = cmd "\\t%D"                  # column  7: device number the file is on
+  cmd = cmd "\\t%i"                  # column  8: file's inode number
+  cmd = cmd "\\t%n"                  # column  9: number of hardlinks to file
+  cmd = cmd "\\t%u"                  # column 10: file's user name
+  cmd = cmd "\\t%g"                  # column 11: file's group name
+  cmd = cmd "\\t%m"                  # column 12: file's permission bits (in octal)
+  cmd = cmd "\\t0"                   # column 13: SHA-256 hash of file's contents (if --sha256 option is given)
+  cmd = cmd "\\t%P"                  # column 14: file's path with <sourceDir> or <backupDir> stripped
+  cmd = cmd "\\t" TRIPLET "'"        # column 15: terminator field
+  cmd = cmd " '(' -lname '*" TRIPLET "*' -printf '\\t' -o -printf '\\t%l' ')'"  # column 16: target path of symbolic link
+  cmd = cmd " -printf '\\t" TRIPLET  # column 17: terminator field
+  cmd = cmd "\\n' > '" metaDir fOutBase "'"
   BIN_BASH
   print "set -e"
   if ( 0 == noProgress ) {
@@ -2791,6 +2803,26 @@ BEGIN {
 }
 AWKPARSER
 
+${awk} '{ print }' << 'READSLINK' > "${f205}"
+#!/bin/bash
+set -u
+set -e
+TAB=$'\t'
+NLINE=$'\n'
+SLASH='/'
+TRIPLETT='///t'
+TRIPLETN='///n'
+TRIPLETS='///s'
+tmpVal="$(readlink "${1}")"
+tmpVal="${tmpVal//${SLASH}/${TRIPLETS}}"
+tmpVal="${tmpVal//${TAB}/${TRIPLETT}}"
+echo -n "${tmpVal//${NLINE}/${TRIPLETN}}"
+# end
+READSLINK
+
+copyToRemoteSource+=( "${f205}" )
+copyToRemoteBackup+=( "${f205}" )
+
 if [ ${noProgress} -eq 0 ]; then
   echo
   echo "ANALYZING ${sourceUserHostDirTerm} AND ${backupUserHostDirTerm}"
@@ -2799,39 +2831,48 @@ fi
 
 start_progress 'Parsing'
 
-${awk} -f "${f106}"                                 \
-       -v sourceBackup='L'                          \
-       -v startPoint="${metaDirAwk}"                \
-       -v followSLinks=0                            \
-       -v findOps="${findLastRunOpsFinalAwk}"       \
-       -v tripletDSepV="${metaDirPattAwk}"          \
-       -v sha256=0                                  \
-       -v outFile="${metaDirAwk}${f300Base}"        \
-       -v noProgress=${noProgress}                  > "${f200}"
+${awk} -f "${f106}"                            \
+       -v sourceBackup='L'                     \
+       -v startPoint="${metaDirAwk}"           \
+       -v followSLinks=0                       \
+       -v findOps="${findLastRunOpsFinalAwk}"  \
+       -v tripletDSepV="${metaDirPattAwk}"     \
+       -v readSLinks=0                         \
+       -v sha256=0                             \
+       -v metaDir="${metaDirAwk}"              \
+       -v f205Base="${f205Base}"               \
+       -v fOutBase="${f300Base}"               \
+       -v noProgress=${noProgress}             > "${f200}"
 
 copyToRemoteBackup+=( "${f200}" )
 
-${awk} -f "${f106}"                                 \
-       -v sourceBackup='S'                          \
-       -v startPoint="${sourceDirAwk}"              \
-       -v followSLinks=${followSLinksS}             \
-       -v findOps="${findSourceOpsFinalAwk}"        \
-       -v tripletDSepV="${sourceDirPattAwk}"        \
-       -v sha256=${sha256}                          \
-       -v outFile="${metaDirSourceAwk}${f310Base}"  \
-       -v noProgress=${noProgress}                  > "${f210}"
+${awk} -f "${f106}"                            \
+       -v sourceBackup='S'                     \
+       -v startPoint="${sourceDirAwk}"         \
+       -v followSLinks=${followSLinksS}        \
+       -v findOps="${findSourceOpsFinalAwk}"   \
+       -v tripletDSepV="${sourceDirPattAwk}"   \
+       -v readSLinks=1                         \
+       -v sha256=${sha256}                     \
+       -v metaDir="${metaDirSourceAwk}"        \
+       -v f205Base="${f205Base}"               \
+       -v fOutBase="${f310Base}"               \
+       -v noProgress=${noProgress}             > "${f210}"
 
 copyToRemoteSource+=( "${f210}" )
 
-${awk} -f "${f106}"                                 \
-       -v sourceBackup='B'                          \
-       -v startPoint="${backupDirAwk}"              \
-       -v followSLinks=${followSLinksB}             \
-       -v findOps="${findBackupOpsFinalAwk}"        \
-       -v tripletDSepV="${backupDirPattAwk}"        \
-       -v sha256=${sha256}                          \
-       -v outFile="${metaDirAwk}${f320Base}"        \
-       -v noProgress=${noProgress}                  > "${f220}"
+${awk} -f "${f106}"                            \
+       -v sourceBackup='B'                     \
+       -v startPoint="${backupDirAwk}"         \
+       -v followSLinks=${followSLinksB}        \
+       -v findOps="${findBackupOpsFinalAwk}"   \
+       -v tripletDSepV="${backupDirPattAwk}"   \
+       -v readSLinks=1                         \
+       -v sha256=${sha256}                     \
+       -v metaDir="${metaDirAwk}"              \
+       -v f205Base="${f205Base}"               \
+       -v fOutBase="${f320Base}"               \
+       -v noProgress=${noProgress}             > "${f220}"
 
 copyToRemoteBackup+=( "${f220}" )
 
@@ -2867,9 +2908,9 @@ if [ ${noLastRun} -eq 0 ]; then
 
   if [ ${remoteBackup} -eq 1 ]; then
 
-    ssh ${sshOptions} "${backupUserHost}" "bash ${f200RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+    ssh ${sshOptions} "${backupUserHost}" "bash ${f200RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    copyFromRemoteBackup+="${f300RemoteScp} "
+    copyFromRemoteBackup+="${f300RemoteBackupScp} "
 
   else
 
@@ -2915,9 +2956,9 @@ if [ ${noFindSource} -eq 0 ]; then
 
   if [ ${remoteSource} -eq 1 ]; then
 
-    ssh ${sshOptions} "${sourceUserHost}" "bash ${f210RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+    ssh ${sshOptions} "${sourceUserHost}" "bash ${f210RemoteSourceScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    copyFromRemoteSource+="${f310RemoteScp} "
+    copyFromRemoteSource+="${f310RemoteSourceScp} "
 
   elif [ ${findParallel} -eq 0 ]; then
 
@@ -2943,9 +2984,9 @@ if [ ${noFindBackup} -eq 0 ]; then
 
   if [ ${remoteBackup} -eq 1 ]; then
 
-    ssh ${sshOptions} "${backupUserHost}" "bash ${f220RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+    ssh ${sshOptions} "${backupUserHost}" "bash ${f220RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    copyFromRemoteBackup+="${f320RemoteScp} "
+    copyFromRemoteBackup+="${f320RemoteBackupScp} "
 
   elif [ ${findParallel} -eq 0 ]; then
 
@@ -3007,6 +3048,7 @@ BEGIN {
   OFS = FSTAB
   spr = 0      # flag remainder of SHA-256 record in progress
   sha = ""     # SHA-256 hash from the SHA-256 record
+  tsl = ""     # target path of symbolic link from the SLINK-TARGET record
   fin = 1      # field index in output record
   fpr = 0      # flag field in progress (for fin 14 or 16)
   fne = 0      # flag field not empty
@@ -3016,19 +3058,21 @@ function add_fragment_to_field( fragment, verbatim ) {
   if ( "" != fragment ) {
     fne = 1
   }
-  if (( 14 == fin ) && ( 0 == verbatim )) {             #  (in field 14, convert slashes to TRIPLETS's)
+  if ((( 14 == fin ) || ( 16 == fin )) && ( 0 == verbatim )) {                #  (in fields 14 and 16, convert slashes to TRIPLETS's)
     gsub( SLASHREGEX, TRIPLETS, fragment )
   }
   rec = rec fragment
 }
 {
-  if ( 1 == spr ) {                                                                       #### remainder of SHA-256 record in progress
+  #### remainder of SHA-256 record in progress
+  if ( 1 == spr ) {
     if ( TRIPLET == $1 ) {
       error_exit( "AWK cleaner in unexpected state at begin of new record (2)" )
     } else if ( TRIPLET == $NF ) {
       spr = 0
     }
-  } else if (( 1 == fin ) && ( TRIPLET == $1 ) && ( "SHA-256" == $2 )) {                   #### the SHA-256 record itself
+  #### the SHA-256 record itself
+  } else if (( 1 == fin ) && ( TRIPLET == $1 ) && ( "SHA-256" == $2 )) {
     if ( "" != sha ) {
       error_exit( "Unprocessed SHA-256 hash while a new SHA-256 record encountered" )
     }
@@ -3040,7 +3084,17 @@ function add_fragment_to_field( fragment, verbatim ) {
     if ( TRIPLET != $NF ) {
       spr = 1
     }
-  } else if (( 1 == fin ) && ( 17 == NF ) && ( TRIPLET == $1 ) && ( TRIPLET == $17 )) {   #### regular record: the unproblematic case performance-optimized
+  #### the SLINK-TARGET record
+  } else if (( 1 == fin ) && ( TRIPLET == $1 ) && ( "SLINK-TARGET" == $2 )) {
+    if ( "" != tsl ) {
+      error_exit( "Unprocessed target path of symbolic link while a new SLINK-TARGET record encountered" )
+    }
+    if (( 4 != NF ) || ( TRIPLET != $NF )) {
+      error_exit( "Unexpected structure of SLINK-TARGET record" )
+    }
+    tsl = $3
+  #### regular record: the unproblematic case performance-optimized
+  } else if (( 1 == fin ) && ( 17 == NF ) && ( TRIPLET == $1 ) && ( TRIPLET == $17 )) {
     if ( "" != sha ) {
       $13 = sha
       sha = ""
@@ -3049,8 +3103,18 @@ function add_fragment_to_field( fragment, verbatim ) {
       $14 = $14 SLASH                                   #  (if field 14 is not empty, append slash and convert slashes to TRIPLETS's)
       gsub( SLASHREGEX, TRIPLETS, $14 )
     }
+    if ( "" != tsl ) {
+      if ( "" != $16 ) {
+        error_exit( "Unexpected, unprocessed SLINK-TARGET record and column 16 not empty (1)" )
+      }
+      $16 = tsl
+      tsl = ""
+    } else {
+      gsub( SLASHREGEX, TRIPLETS, $16 )
+    }
     print
-  } else {                                                                                #### regular record: full processing otherwise
+  #### regular record: full processing otherwise
+  } else {
     if ( 0 == NF ) {                                    ### blank input line
       if ( 1 == fpr ) {                                 ## blank input line while fin 14 or 16 in progress (= newline in file name)
         add_fragment_to_field( TRIPLETN, 1 )
@@ -3066,6 +3130,12 @@ function add_fragment_to_field( fragment, verbatim ) {
           if ( TRIPLET == $i ) {                        # TRIPLET terminator found
             if (( 14 == fin ) && ( 1 == fne )) {        #  (append TRIPLETS to field 14 (if field 14 is not empty))
               add_fragment_to_field( TRIPLETS, 1 )
+            } else if (( 16 == fin ) && ( "" != tsl )) {
+              if ( 1 == fne ) {
+                error_exit( "Unexpected, unprocessed SLINK-TARGET record and column 16 not empty (2)" )
+              }
+              add_fragment_to_field( tsl, 1 )
+              tsl = ""
             }
             rec = rec FSTAB TRIPLET
             fin = fin + 2
@@ -3090,7 +3160,7 @@ function add_fragment_to_field( fragment, verbatim ) {
           } else {                                      # other fields are regular
             rec = rec FSTAB
             if (( 13 == fin ) && ( "" != sha )) {
-              add_fragment_to_field( sha, 0 )
+              add_fragment_to_field( sha, 1 )
               sha = ""
             } else {
               add_fragment_to_field( $i, 0 )
@@ -3115,8 +3185,14 @@ function add_fragment_to_field( fragment, verbatim ) {
   }
 }
 END {
-  if (( 0 != spr ) || ( 1 != fin ) || ( 0 != fpr )) {
-    error_exit( "AWK cleaner in unexpected state at end of file" )
+  if (( 0 != spr ) || ( "" != sha )) {
+    error_exit( "AWK cleaner in unexpected state at end of file (1)" )
+  }
+  if ( "" != tsl ) {
+    error_exit( "AWK cleaner in unexpected state at end of file (2)" )
+  }
+  if (( 1 != fin ) || ( 0 != fpr )) {
+    error_exit( "AWK cleaner in unexpected state at end of file (3)" )
   }
 }
 AWKCLEANER
@@ -4434,7 +4510,7 @@ else
 
   files_not_prepared "${f631}" "${f632}" "${f633}"
 
-  removeFromRemoteSource+="${f631RemoteScp} ${f633RemoteScp} "
+  removeFromRemoteSource+="${f631RemoteSourceScp} ${f633RemoteSourceScp} "
 
   if [ -e "${f530}" ]; then
     error_exit 'Unexpected, REV actions prepared although neither --revNew nor --revUp option given'
@@ -4462,7 +4538,7 @@ else
 
   files_not_prepared "${f640}"
 
-  removeFromRemoteBackup+="${f640RemoteScp} "
+  removeFromRemoteBackup+="${f640RemoteBackupScp} "
 
   if [ -e "${f540}" ]; then
     error_exit 'Unexpected, avoidable removals prepared although --noRemove option given'
@@ -4506,7 +4582,7 @@ else
 
   files_not_prepared "${f651}" "${f652}" "${f653}"
 
-  removeFromRemoteBackup+="${f651RemoteScp} ${f653RemoteScp} "
+  removeFromRemoteBackup+="${f651RemoteBackupScp} ${f653RemoteBackupScp} "
 
   if [ -e "${f550}" ]; then
     error_exit 'Unexpected, copies resulting from comparing contents of files prepared although neither --byteByByte nor --sha256 option given'
@@ -4647,6 +4723,9 @@ BEGIN {
     gsub( TRIPLETNREGEX, NLINE, ol )
     gsub( TRIPLETTREGEX, TAB, pt )
     gsub( TRIPLETTREGEX, TAB, ol )
+    if ( "l" == $3 ) {
+      gsub( TRIPLETSREGEX, SLASH, ol )
+    }
     ptScp = pt
     gsub( QUOTEREGEX, QUOTEESC, us )
     gsub( QUOTEREGEX, QUOTEESC, gr )
@@ -4748,8 +4827,8 @@ else
 
   files_not_prepared "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}"
 
-  removeFromRemoteBackup+="${f800RemoteScp} ${f810RemoteScp} ${f820RemoteScp} ${f830RemoteScp} "
-  removeFromRemoteBackup+="${f840RemoteScp} ${f850RemoteScp} ${f860RemoteScp} "
+  removeFromRemoteBackup+="${f800RemoteBackupScp} ${f810RemoteBackupScp} ${f820RemoteBackupScp} ${f830RemoteBackupScp} "
+  removeFromRemoteBackup+="${f840RemoteBackupScp} ${f850RemoteBackupScp} ${f860RemoteBackupScp} "
 
 fi
 
@@ -4801,7 +4880,7 @@ if [ -s "${f510}" ]; then
   if [ 'Y' == "${tmpVal/y/Y}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
-      ssh ${sshOptions} "${backupUserHost}" "bash ${f610RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      ssh ${sshOptions} "${backupUserHost}" "bash ${f610RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     else
       bash "${f610}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     fi
@@ -4822,9 +4901,9 @@ if [ -s "${f520}" ]; then
   if [ 'Y' == "${tmpVal/y/Y}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
-      ssh ${sshOptions} "${backupUserHost}" "bash ${f621RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-      bash "${f622}"                                                | ${awkNoBuf} -f "${f102}" -v color=${color}
-      ssh ${sshOptions} "${backupUserHost}" "bash ${f623RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      ssh ${sshOptions} "${backupUserHost}" "bash ${f621RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f622}"                                                      | ${awkNoBuf} -f "${f102}" -v color=${color}
+      ssh ${sshOptions} "${backupUserHost}" "bash ${f623RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     else
       bash "${f621}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       bash "${f622}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -4848,9 +4927,9 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
     if [ 'Y' == "${tmpVal/y/Y}" ]; then
       echo
       if [ ${remoteSource} -eq 1 ]; then
-        ssh ${sshOptions} "${sourceUserHost}" "bash ${f631RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f632}"                                                | ${awkNoBuf} -f "${f102}" -v color=${color}
-        ssh ${sshOptions} "${sourceUserHost}" "bash ${f633RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        ssh ${sshOptions} "${sourceUserHost}" "bash ${f631RemoteSourceScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f632}"                                                      | ${awkNoBuf} -f "${f102}" -v color=${color}
+        ssh ${sshOptions} "${sourceUserHost}" "bash ${f633RemoteSourceScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
         bash "${f631}" | ${awkNoBuf} -f "${f102}" -v color=${color}
         bash "${f632}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -4875,7 +4954,7 @@ if [ ${noRemove} -eq 0 ]; then
     if [ 'Y' == "${tmpVal/y/Y}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
-        ssh ${sshOptions} "${backupUserHost}" "bash ${f640RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        ssh ${sshOptions} "${backupUserHost}" "bash ${f640RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
         bash "${f640}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
@@ -4898,9 +4977,9 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
     if [ 'Y' == "${tmpVal/y/Y}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
-        ssh ${sshOptions} "${backupUserHost}" "bash ${f651RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f652}"                                                | ${awkNoBuf} -f "${f102}" -v color=${color}
-        ssh ${sshOptions} "${backupUserHost}" "bash ${f653RemoteScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        ssh ${sshOptions} "${backupUserHost}" "bash ${f651RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f652}"                                                      | ${awkNoBuf} -f "${f102}" -v color=${color}
+        ssh ${sshOptions} "${backupUserHost}" "bash ${f653RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
         bash "${f651}" | ${awkNoBuf} -f "${f102}" -v color=${color}
         bash "${f652}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -4915,7 +4994,7 @@ fi
 # touch the file 999_mark_executed
 
 if [ ${remoteBackup} -eq 1 ]; then
-  ssh ${sshOptions} "${backupUserHost}" "bash ${f690RemoteScp}"
+  ssh ${sshOptions} "${backupUserHost}" "bash ${f690RemoteBackupScp}"
 else
   bash "${f690}"
 fi

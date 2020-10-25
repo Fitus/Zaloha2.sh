@@ -207,10 +207,6 @@ given, symbolic links on &lt;sourceDir&gt; are followed and the referenced files
 directories are synchronized to &lt;backupDir&gt;. See section Following Symbolic
 Links for details.
 
-  Note: Zaloha is unable to process symbolic links which have not normalized
-  target paths with three or more consecutive slashes (for details, see section
-  on Handling of Weird Characters in Filenames further below).
-
 Zaloha does not synchronize other types of objects in &lt;sourceDir&gt; (named pipes,
 sockets, special devices, etc). These objects are considered to be part of the
 operating system or parts of applications, and dedicated scripts for their
@@ -1364,12 +1360,16 @@ symbolic links: Unfortunately, the OSes do not normalize target paths with
 consecutive slashes while writing them to the filesystems, and FIND does not
 normalize them either in the -printf %l output. Actually, there seem to be no
 constraints on the target paths of symbolic links. Hence, the /// triplets can
-occur there as well. The solution is the exclusion of such symbolic links from
-the processing, by the FIND expressions -lname *///* -o. This "just" removes the
-security vulnerability arising from such symbolic links, but does not introduce
-their proper processing. A proper processing is theoretically possible, but the
-costs (extra FIND's and program code) would be hardly justifiable in light of
-the debatable practical relevance of such symbolic links.
+occur there as well. This prohibits their safe processing within the above
+described FIND-AWKCLEANER algorithm. Instead, a special solution is implemented
+that involves running an auxiliary script (205_read_slink.sh) for each symbolic
+link that contains three or more consecutive slashes (found by FIND expression
+-lname *///*). This script obtains the target paths of such symbolic links and
+escapes slashes by ///s, tabs by ///t and newlines by ///n. The escaped target
+paths are then put into extra records in files 310 and 320, and AWKCLEANER
+merges them into the regular records (column 16) in the cleaned files 330
+and 340. Performance-wise, running the auxiliary script 205 per symbolic link
+is not ideal, but the above described symbolic links should be rare occurrences.
 
 An additional challenge is passing of variable values to AWK. During its
 lexical parsing, AWK interprets backslash-led escape sequences. To avoid this,
