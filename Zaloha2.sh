@@ -1546,6 +1546,31 @@ After use, the SSH master connection should be terminated as follows:
 
   ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' <remoteUserHost>
 
+SCP Progress Meter
+------------------
+SCP contains a Progress Meter that is very useful when copying large files.
+It continuously displays the percent of transfer done, the amount transferred,
+the bandwidth usage and the estimated time of arrival.
+
+The SCP Progress Meter does not display if SCP is given the "-q" option or if
+the standard output of SCP (= standard output of Zaloha) is not connected
+to a terminal (which is logical).
+
+In Zaloha, the SCP Progress Meter can appear both in the analysis phase
+(copying of metadata files to/from the remote side) as well as in the actual
+copy phase (execution of the scripts 622, 632 and 652).
+
+In the analysis phase, the display of the SCP Progress Meter (along with all
+other analysis messages) can be switched off by the "--noProgress" option.
+Internally, this is achieved by passing the "-q" option to the SCP commands
+used during the analysis phase.
+
+In the actual copy phase, the SCP Progress Meter displays along with the shell
+traces. Internally, this is achieved by an I/O redirection which pipes the shell
+traces through the AWK filter 102 but keeps the standard output of the copy
+scripts connected to the standard output of Zaloha (which must be connected
+to a terminal in order for the SCP Progress Meter to appear).
+
 Windows / Cygwin notes:
 -----------------------
 Make sure you use the Cygwin's version of OpenSSH, not the Windows' version.
@@ -2643,6 +2668,7 @@ BEGIN {
   gsub( /DEFINE_ERROR_EXIT/, eex )
   gsub( /DEFINE_WARNING/, war )
   gsub( /BIN_BASH/, "print \"#!/bin/bash\"" )
+  gsub( /XTRACE_ON_CP/, "print \"BASH_XTRACEFD=3; PS4='    '; set -x\"" )
   gsub( /XTRACE_ON/, "print \"BASH_XTRACEFD=1; PS4='    '; set -x\"" )
   gsub( /XTRACE_OFF/, "print \"  { set +x; } > /dev/null\"" )
   gsub( /SECTION_LINE/, "print \"#\" FSTAB TRIPLET" )
@@ -2798,20 +2824,20 @@ BEGIN {
   if ( 1 == idq ) {
     error_exit( "<findOps> contains unpaired double quote" )
   }
-  if ( 1 == readSLinks ) {
-    cmd = cmd " '(' -lname '*" TRIPLET "*' -printf '"
-    cmd = cmd TRIPLET                                            # SLINK-TARGET column 1: leading field
-    cmd = cmd "\\tSLINK-TARGET"                                  # SLINK-TARGET column 2: SLINK-TARGET constant
-    cmd = cmd "\\t' -exec bash '" metaDir f205Base "' '{}' ';'"  # SLINK-TARGET column 3: escaped target path of symbolic link
-    cmd = cmd " -printf '\\t" TRIPLET                            # SLINK-TARGET column 4: terminator field
-    cmd = cmd "\\n' -false ')' -o"
-  }
   if ( 1 == sha256 ) {
     cmd = cmd " '(' -type f -printf '"
     cmd = cmd TRIPLET                           # SHA-256 column 1: leading field
     cmd = cmd "\\tSHA-256"                      # SHA-256 column 2: SHA-256 constant
     cmd = cmd "\\t' -exec sha256sum '{}' ';'"   # SHA-256 column 3: the SHA-256 hash + space + file name + newline
     cmd = cmd " -printf '\\t" TRIPLET           # SHA-256 column 4: terminator field
+    cmd = cmd "\\n' -false ')' -o"
+  }
+  if ( 1 == readSLinks ) {
+    cmd = cmd " '(' -lname '*" TRIPLET "*' -printf '"
+    cmd = cmd TRIPLET                                            # SLINK-TARGET column 1: leading field
+    cmd = cmd "\\tSLINK-TARGET"                                  # SLINK-TARGET column 2: SLINK-TARGET constant
+    cmd = cmd "\\t' -exec bash '" metaDir f205Base "' '{}' ';'"  # SLINK-TARGET column 3: escaped target path of symbolic link
+    cmd = cmd " -printf '\\t" TRIPLET                            # SLINK-TARGET column 4: terminator field
     cmd = cmd "\\n' -false ')' -o"
   }
   cmd = cmd " -printf '"
@@ -2859,9 +2885,6 @@ echo -n "${tmpVal//${NLINE}/${TRIPLETN}}"
 # end
 READSLINK
 
-copyToRemoteSource+=( "${f205}" )
-copyToRemoteBackup+=( "${f205}" )
-
 if [ ${noProgress} -eq 0 ]; then
   echo
   echo "ANALYZING ${sourceUserHostDirTerm} AND ${backupUserHostDirTerm}"
@@ -2876,8 +2899,8 @@ ${awk} -f "${f106}"                            \
        -v followSLinks=0                       \
        -v findOps="${findLastRunOpsFinalAwk}"  \
        -v tripletDSepV="${metaDirPattAwk}"     \
-       -v readSLinks=0                         \
        -v sha256=0                             \
+       -v readSLinks=0                         \
        -v metaDir="${metaDirAwk}"              \
        -v f205Base="${f205Base}"               \
        -v fOutBase="${f300Base}"               \
@@ -2891,14 +2914,14 @@ ${awk} -f "${f106}"                            \
        -v followSLinks=${followSLinksS}        \
        -v findOps="${findSourceOpsFinalAwk}"   \
        -v tripletDSepV="${sourceDirPattAwk}"   \
-       -v readSLinks=1                         \
        -v sha256=${sha256}                     \
+       -v readSLinks=1                         \
        -v metaDir="${metaDirSourceAwk}"        \
        -v f205Base="${f205Base}"               \
        -v fOutBase="${f310Base}"               \
        -v noProgress=${noProgress}             > "${f210}"
 
-copyToRemoteSource+=( "${f210}" )
+copyToRemoteSource+=( "${f205}" "${f210}" )
 
 ${awk} -f "${f106}"                            \
        -v sourceBackup='B'                     \
@@ -2906,14 +2929,14 @@ ${awk} -f "${f106}"                            \
        -v followSLinks=${followSLinksB}        \
        -v findOps="${findBackupOpsFinalAwk}"   \
        -v tripletDSepV="${backupDirPattAwk}"   \
-       -v readSLinks=1                         \
        -v sha256=${sha256}                     \
+       -v readSLinks=1                         \
        -v metaDir="${metaDirAwk}"              \
        -v f205Base="${f205Base}"               \
        -v fOutBase="${f320Base}"               \
        -v noProgress=${noProgress}             > "${f220}"
 
-copyToRemoteBackup+=( "${f220}" )
+copyToRemoteBackup+=( "${f205}" "${f220}" )
 
 stop_progress
 
@@ -4163,7 +4186,7 @@ BEGIN {
     print "set -u" > f622
     if ( 0 == noExec ) {
       print "set -e" > f622
-      XTRACE_ON > f622
+      XTRACE_ON_CP > f622
     }
   }
   if ( 0 == no623Hdr ) {
@@ -4395,7 +4418,7 @@ BEGIN {
     print "set -u" > f632
     if ( 0 == noExec ) {
       print "set -e" > f632
-      XTRACE_ON > f632
+      XTRACE_ON_CP > f632
     }
   }
   if ( 0 == no633Hdr ) {
@@ -4903,6 +4926,8 @@ if [ ${noExec} -eq 1 ]; then
   exit 0
 fi
 
+exec 4>&1
+
 if [ -s "${f510}" ]; then
   echo
   echo "UNAVOIDABLE REMOVALS FROM ${backupUserHostDirTerm}"
@@ -4941,12 +4966,12 @@ if [ -s "${f520}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
       ssh ${sshOptions} "${backupUserHost}" "bash ${f621RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-      bash "${f622}"                                                      | ${awkNoBuf} -f "${f102}" -v color=${color}
+      3>&1 1>&4 bash "${f622}"                                            | ${awkNoBuf} -f "${f102}" -v color=${color}
       ssh ${sshOptions} "${backupUserHost}" "bash ${f623RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     else
-      bash "${f621}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-      bash "${f622}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-      bash "${f623}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f621}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
+      3>&1 1>&4 bash "${f622}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+      bash "${f623}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
     fi
   else
     error_exit 'User requested Zaloha to abort'
@@ -4967,12 +4992,12 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
       echo
       if [ ${remoteSource} -eq 1 ]; then
         ssh ${sshOptions} "${sourceUserHost}" "bash ${f631RemoteSourceScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f632}"                                                      | ${awkNoBuf} -f "${f102}" -v color=${color}
+        3>&1 1>&4 bash "${f632}"                                            | ${awkNoBuf} -f "${f102}" -v color=${color}
         ssh ${sshOptions} "${sourceUserHost}" "bash ${f633RemoteSourceScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
-        bash "${f631}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f632}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f633}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f631}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
+        3>&1 1>&4 bash "${f632}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f633}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
     else
       error_exit 'User requested Zaloha to abort'
@@ -5017,18 +5042,20 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
         ssh ${sshOptions} "${backupUserHost}" "bash ${f651RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f652}"                                                      | ${awkNoBuf} -f "${f102}" -v color=${color}
+        3>&1 1>&4 bash "${f652}"                                            | ${awkNoBuf} -f "${f102}" -v color=${color}
         ssh ${sshOptions} "${backupUserHost}" "bash ${f653RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
-        bash "${f651}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f652}" | ${awkNoBuf} -f "${f102}" -v color=${color}
-        bash "${f653}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f651}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
+        3>&1 1>&4 bash "${f652}" | ${awkNoBuf} -f "${f102}" -v color=${color}
+        bash "${f653}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
     else
       error_exit 'User requested Zaloha to abort'
     fi
   fi
 fi
+
+exec 4>&-
 
 # touch the file 999_mark_executed
 
