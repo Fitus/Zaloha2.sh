@@ -661,10 +661,10 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --noR860Hdr     ... do not write header to the restore script 860
    (Explained in the Advanced Use of Zaloha section below).
 
---noProgress    ... suppress progress messages (less screen output). If both
-                    options "--noExec" and "--noProgress" are used, Zaloha does
-                    not produce any output on stdout (traditional behavior of
-                    Unics tools).
+--noProgress    ... suppress progress messages during the analysis phase (less
+                    screen output). If "--noProgress" is used together with
+                    "--noExec", Zaloha does not produce any output on stdout
+                    (traditional behavior of Unics tools).
 
 --color         ... use color highlighting (can be used on terminals which
                     support ANSI escape codes)
@@ -1147,13 +1147,13 @@ by more than 3600 seconds (plus an eventual 2 secs FAT tolerance).
 Corner case FAT uppercase conversions: Explained by following example:
 
 The source directory is on a Linux ext4 filesystem and contains the files
-SOUBOR.TXT, SOUBOR.txt, soubor.TXT and soubor.txt in one of the subdirectories.
+FILE.TXT, FILE.txt, file.TXT and file.txt in one of the subdirectories.
 The backup directory is on a FAT-formatted USB flash drive. The synchronization
-executes without visible problems, but in the backup directory, only SOUBOR.TXT
+executes without visible problems, but in the backup directory, only FILE.TXT
 exists after the synchronization.
 
 What happened is that the OS/filesystem re-directed all four copy operations
-into SOUBOR.TXT. Also, after three overwrites, the backup of only one of the
+into FILE.TXT. Also, after three overwrites, the backup of only one of the
 four source files exists. Zaloha detects this situation on next synchronization
 and prepares new copy commands, but they again hit the same problem.
 
@@ -3312,16 +3312,16 @@ function target_paths_check() {
     error_exit( "Unexpected, column 1 of cleaned file is not leading field" )
   }
   if ( $2 !~ /[LSB]/ ) {
-    error_exit( "Unexpected, column 2 of cleaned file contains invalid value" )
+    error_exit( "Unexpected, column 2 of cleaned file (Source/Backup indicator) contains invalid value" )
   }
   if ( $3 !~ /[dflpscbD]/ ) {
-    error_exit( "Unexpected, column 3 of cleaned file contains invalid value" )
+    error_exit( "Unexpected, column 3 of cleaned file (file's type) contains invalid value" )
   }
   if ( $4 !~ NUMBERREGEX ) {
-    error_exit( "Unexpected, column 4 of cleaned file is not numeric" )
+    error_exit( "Unexpected, column 4 of cleaned file (file's size in bytes) is not numeric" )
   }
   if ( $5 !~ SIGNNUMBERREGEX ) {
-    error_exit( "Unexpected, column 5 of cleaned file is not numeric" )
+    error_exit( "Unexpected, column 5 of cleaned file (file's last modification time) is not numeric" )
   }
   if ( "f" == $3 ) {
     cfd = cfd + 1
@@ -3330,28 +3330,28 @@ function target_paths_check() {
     }
   }
   if ( $6 !~ ALPHAREGEX ) {
-    error_exit( "Unexpected, column 6 of cleaned file is not alphanumeric" )
+    error_exit( "Unexpected, column 6 of cleaned file (type of the filesystem) is not alphanumeric" )
   }
   if ( $7 !~ NUMBERREGEX ) {
-    error_exit( "Unexpected, column 7 of cleaned file is not numeric" )
+    error_exit( "Unexpected, column 7 of cleaned file (device number) is not numeric" )
   }
   if ( $8 !~ NUMBERREGEX ) {
-    error_exit( "Unexpected, column 8 of cleaned file is not numeric" )
+    error_exit( "Unexpected, column 8 of cleaned file (file's inode number) is not numeric" )
   }
   if ( $9 !~ NUMBERREGEX ) {
-    error_exit( "Unexpected, column 9 of cleaned file is not numeric" )
+    error_exit( "Unexpected, column 9 of cleaned file (number of hardlinks to file) is not numeric" )
   }
   if ( $9 ~ ZEROREGEX ) {
-    error_exit( "Unexpected, column 9 of cleaned file is zero" )
+    error_exit( "Unexpected, column 9 of cleaned file (number of hardlinks to file) is zero" )
   }
   if ( $10 == "" ) {
-    error_exit( "Unexpected, column 10 of cleaned file is empty" )
+    error_exit( "Unexpected, column 10 of cleaned file (file's user name) is empty" )
   }
   if ( $11 == "" ) {
-    error_exit( "Unexpected, column 11 of cleaned file is empty" )
+    error_exit( "Unexpected, column 11 of cleaned file (file's group name) is empty" )
   }
   if ( $12 !~ NUMBERREGEX ) {
-    error_exit( "Unexpected, column 12 of cleaned file is not numeric" )
+    error_exit( "Unexpected, column 12 of cleaned file (file's permission bits) is not numeric" )
   }
   if (( 1 == sha256 ) && ( "f" == $3 )) {
     if ( $13 !~ SHA256REGEX ) {
@@ -3363,7 +3363,7 @@ function target_paths_check() {
     }
   }
   if (( 1 != NR ) && ( $14 == "" )) {
-    error_exit( "Unexpected, column 14 of cleaned file is empty" )
+    error_exit( "Unexpected, column 14 of cleaned file (file's path) is empty" )
   }
   if ( $15 != TRIPLET ) {
     error_exit( "Unexpected, column 15 of cleaned file is not terminator field" )
@@ -3375,7 +3375,7 @@ function target_paths_check() {
     }
   } else {
     if ( $16 != "" ) {
-      error_exit( "Unexpected, column 16 of cleaned file is not empty for other object than symbolic link" )
+      error_exit( "Unexpected, column 16 of cleaned file (target path of symbolic link) is not empty for other object than symbolic link" )
     }
   }
   if ( $17 != TRIPLET ) {
@@ -3387,7 +3387,7 @@ function target_paths_check() {
     p = "M" TRIPLETS "M" TRIPLETS $14
     n = split( p, a, TRIPLETSREGEX )
     if ( "" != a[n] ) {
-      error_exit( "Unexpected, path (column 14) ends incorrectly" )
+      error_exit( "Unexpected, column 14 of cleaned file (file's path) ends incorrectly" )
     }
     t = substr( p, 1, length( p ) - TRIPLETSLENGTH - length( a[n-1] ))
     if ( pp == t ) {
@@ -4907,6 +4907,8 @@ else
 fi
 
 ###########################################################
+
+# copy the prepared shellscripts and other metadata to the remote side
 
 if [ ${remoteSource} -eq 1 ]; then
 

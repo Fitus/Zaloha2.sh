@@ -144,10 +144,11 @@ Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--
 &nbsp; | Ability to process **all symbolic links** (even those with target paths that contain three or more consective slashes). The implied change is additional escaping of slashes by ///s in column 16 for symbolic links.
 &nbsp; | New Sanity Check for column 6 not alphanumeric
 &nbsp; | More stringent directories hierarchy check
-&nbsp; | More tolerant check of zero modification times of files
+&nbsp; | More tolerant check of modification times of files (zero or even negative modification times are possible)
+&nbsp; | More tolerant check of target paths of symbolic links (empty target paths are possible on some OSes)
 &nbsp; | Minor code improvements and optimizations
-Code size 76 kB | Code size 109 kB
-Docu size 78 kB | Docu size 94 kB
+Code size 76 kB | Code size 110 kB
+Docu size 78 kB | Docu size 95 kB
 
 ## License
 MIT License

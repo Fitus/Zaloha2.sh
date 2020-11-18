@@ -170,7 +170,7 @@ multiply linked files, which could lead to follow-up effects. This unlinking
 can be switched off via the <b>--noUnlink</b> option.
 
 If the files differ only in attributes (u=user ownership, g=group ownership,
-m=mode), and the synchronization of attributes is switched on via the <b>--pUser,</b>
+m=mode), and the synchronization of attributes is switched on via the <b>--pUser</b>,
 <b>--pGroup</b> and <b>--pMode</b> options, then these attributes will be synchronized
 (action code <b>ATTR</b>). However, this is an optional feature, because:
 (1) the filesystem of &lt;backupDir&gt; might not be capable of storing these
@@ -239,8 +239,8 @@ and the files in &lt;backupDir&gt; are newer, and the <b>--revUp</b> option is g
 then Zaloha uses that files to reverse-update the older files in &lt;sourceDir&gt;
 (action code <b>REV.UP</b>).
 
-Optionally, to preserve attributes during the <b>REV.MKDI,</b> <b>REV.NEW</b> and <b>REV.UP</b>
-operations: use options <b>--pRevUser,</b> <b>--pRevGroup</b> and <b>--pRevMode.</b>
+Optionally, to preserve attributes during the <b>REV.MKDI</b>, <b>REV.NEW</b> and <b>REV.UP</b>
+operations: use options <b>--pRevUser</b>, <b>--pRevGroup</b> and <b>--pRevMode.</b>
 
 If reverse-synchronization is not active: If no <b>--revNew</b> option is given,
 then each standalone file in &lt;backupDir&gt; is considered obsolete (and removed,
@@ -635,10 +635,10 @@ to backslashes inside.
 <b>--noR860Hdr</b>     ... do not write header to the restore script 860
    (Explained in the Advanced Use of Zaloha section below).
 
-<b>--noProgress</b>    ... suppress progress messages (less screen output). If both
-                    options <b>--noExec</b> and <b>--noProgress</b> are used, Zaloha does
-                    not produce any output on stdout (traditional behavior of
-                    Unics tools).
+<b>--noProgress</b>    ... suppress progress messages during the analysis phase (less
+                    screen output). If <b>--noProgress</b> is used together with
+                    <b>--noExec</b>, Zaloha does not produce any output on stdout
+                    (traditional behavior of Unics tools).
 
 <b>--color</b>         ... use color highlighting (can be used on terminals which
                     support ANSI escape codes)
@@ -1118,20 +1118,20 @@ The modification times are more complex:
 [SCC_FAT_02]
 Corner case <b>REV.UP</b> with <b>--ok3600s:</b> The <b>--ok3600s</b> option makes it harder
 to determine which file is newer (decision <b>UPDATE</b> vs <b>REV.UP</b>). The implemented
-solution for that case is that for <b>REV.UP,</b> the &lt;backupDir&gt; file must be newer
+solution for that case is that for <b>REV.UP</b>, the &lt;backupDir&gt; file must be newer
 by more than 3600 seconds (plus an eventual 2 secs FAT tolerance).
 
 [SCC_FAT_03]
 Corner case FAT uppercase conversions: Explained by following example:
 
 The source directory is on a Linux ext4 filesystem and contains the files
-SOUBOR.TXT, SOUBOR.txt, soubor.TXT and soubor.txt in one of the subdirectories.
+FILE.TXT, FILE.txt, file.TXT and file.txt in one of the subdirectories.
 The backup directory is on a FAT-formatted USB flash drive. The synchronization
-executes without visible problems, but in the backup directory, only SOUBOR.TXT
+executes without visible problems, but in the backup directory, only FILE.TXT
 exists after the synchronization.
 
 What happened is that the OS/filesystem re-directed all four copy operations
-into SOUBOR.TXT. Also, after three overwrites, the backup of only one of the
+into FILE.TXT. Also, after three overwrites, the backup of only one of the
 four source files exists. Zaloha detects this situation on next synchronization
 and prepares new copy commands, but they again hit the same problem.
 
@@ -1526,6 +1526,31 @@ connection, use the options <b>--sshOptions</b> and <b>--scpOptions:</b>
 After use, the SSH master connection should be terminated as follows:
 
   ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' &lt;remoteUserHost&gt;
+
+SCP Progress Meter
+------------------
+SCP contains a Progress Meter that is very useful when copying large files.
+It continuously displays the percent of transfer done, the amount transferred,
+the bandwidth usage and the estimated time of arrival.
+
+The SCP Progress Meter does not display if SCP is given the "-q" option or if
+the standard output of SCP (= standard output of Zaloha) is not connected
+to a terminal (which is logical).
+
+In Zaloha, the SCP Progress Meter can appear both in the analysis phase
+(copying of metadata files to/from the remote side) as well as in the actual
+copy phase (execution of the scripts 622, 632 and 652).
+
+In the analysis phase, the display of the SCP Progress Meter (along with all
+other analysis messages) can be switched off by the <b>--noProgress</b> option.
+Internally, this is achieved by passing the "-q" option to the SCP commands
+used during the analysis phase.
+
+In the actual copy phase, the SCP Progress Meter displays along with the shell
+traces. Internally, this is achieved by an I/O redirection which pipes the shell
+traces through the AWK filter 102 but keeps the standard output of the copy
+scripts connected to the standard output of Zaloha (which must be connected
+to a terminal in order for the SCP Progress Meter to appear).
 
 Windows / Cygwin notes:
 -----------------------
