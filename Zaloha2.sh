@@ -3279,6 +3279,8 @@ BEGIN {
   FS = FSTAB
   cfd = 0       # count of files on given device
   cfc = 0       # count of files on given device with correct modification times
+  csd = 0       # count of symbolic links on given device
+  csc = 0       # count of symbolic links on given device with non-empty target paths
   tp = "d"
   dv = ""
   pp = "M" TRIPLETS
@@ -3288,12 +3290,20 @@ function mtimes_check() {
     warning( "All " cfd " files on device " dv " have zero (or negative) modification times" )
   }
 }
+function target_paths_check() {
+  if (( 0 != csd ) && ( 0 == csc )) {
+    warning( "All " csd " symbolic links on device " dv " have empty target paths" )
+  }
+}
 {
   # switch to a new device: check modification times of files
   if ( dv != $7 ) {
     mtimes_check()
     cfd = 0
     cfc = 0
+    target_paths_check()
+    csd = 0
+    csc = 0
   }
   if ( 17 != NF ) {
     error_exit( "Unexpected, cleaned CSV file does not contain 17 columns" )
@@ -3359,8 +3369,9 @@ function mtimes_check() {
     error_exit( "Unexpected, column 15 of cleaned file is not terminator field" )
   }
   if ( "l" == $3 ) {
-    if ( $16 == "" ) {
-      error_exit( "Unexpected, column 16 of cleaned file is empty for symbolic link" )
+    csd = csd + 1
+    if ( $16 != "" ) {   # correct (expected) target path of a symbolic link is a non-empty string
+      csc = csc + 1
     }
   } else {
     if ( $16 != "" ) {
@@ -3400,6 +3411,7 @@ END {
     error_exit( "Unexpected, no records in file (at least the start point directory should be there)" )
   }
   mtimes_check()
+  target_paths_check()
 }
 AWKCHECKER
 
