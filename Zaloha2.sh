@@ -1855,6 +1855,7 @@ f860Base='860_restore_mode.sh'       # for the case of restore: shellscript to r
 f999Base='999_mark_executed'         # empty touchfile marking execution of actions
 
 ###########################################################
+
 set -u
 set -e
 set -o pipefail
@@ -1979,6 +1980,7 @@ printf -v BLANKS60 '%60s' ' '
 DOTS60="${BLANKS60// /.}"
 
 ###########################################################
+
 sourceDir=
 sourceDirPassed=0
 backupDir=
@@ -2182,6 +2184,7 @@ else
 fi
 
 ###########################################################
+
 if [ '' == "${sourceDir}" ]; then
   error_exit '<sourceDir> is mandatory, get help via Zaloha2.sh --help'
 fi
@@ -2212,6 +2215,7 @@ else
 fi
 
 ###########################################################
+
 if [ '' == "${backupDir}" ]; then
   error_exit '<backupDir> is mandatory, get help via Zaloha2.sh --help'
 fi
@@ -2242,6 +2246,7 @@ else
 fi
 
 ###########################################################
+
 if [ ${remoteSource} -eq 1 ]; then
   if [ '' == "${sourceUserHost}" ]; then
     error_exit '<sourceUserHost> is mandatory if --sourceUserHost option is given'
@@ -2261,6 +2266,7 @@ backupUserHostAwk="${backupUserHost//${BSLASHPATTERN}/${TRIPLETB}}"
 scpOptionsAwk="${scpOptions//${BSLASHPATTERN}/${TRIPLETB}}"
 
 ###########################################################
+
 tmpVal="${findSourceOps//${TRIPLETDSEP}/M}"
 if [ "${tmpVal/${TRIPLET}/}" != "${tmpVal}" ]; then
   error_exit "<findSourceOps> contains the directory separator triplet (${TRIPLET})"
@@ -2270,6 +2276,7 @@ findSourceOpsEsc="${findSourceOps//${TAB}/${TRIPLETT}}"
 findSourceOpsEsc="${findSourceOpsEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
+
 findGeneralOpsDefault=
 findGeneralOpsDefault="${findGeneralOpsDefault}-ipath ${TRIPLETDSEP}\$RECYCLE.BIN -prune -o "
 findGeneralOpsDefault="${findGeneralOpsDefault}-path ${TRIPLETDSEP}.Trash-[0-9]* -prune -o "
@@ -2288,6 +2295,7 @@ findGeneralOpsEsc="${findGeneralOps//${TAB}/${TRIPLETT}}"
 findGeneralOpsEsc="${findGeneralOpsEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
+
 metaDirDefaultBase='.Zaloha_metadata'
 metaDirDefault="${backupDir}${metaDirDefaultBase}"
 if [ ${metaDirPassed} -eq 0 ]; then
@@ -2316,6 +2324,7 @@ metaDirEsc="${metaDir//${TAB}/${TRIPLETT}}"
 metaDirEsc="${metaDirEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
+
 metaDirTempDefaultBase='.Zaloha_metadata_temp'
 metaDirTempDefault="${sourceDir}${metaDirTempDefaultBase}"
 if [ ${metaDirTempPassed} -eq 0 ]; then
@@ -2339,6 +2348,7 @@ metaDirTempEsc="${metaDirTemp//${TAB}/${TRIPLETT}}"
 metaDirTempEsc="${metaDirTempEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
+
 findLastRunOpsFinalAwk="-path ${TRIPLETDSEP}${f999Base} -type f"
 findSourceOpsFinalAwk="${findGeneralOpsAwk} ${findSourceOpsAwk}"
 findBackupOpsFinalAwk="${findGeneralOpsAwk}"
@@ -2370,6 +2380,7 @@ else
 fi
 
 ###########################################################
+
 if [ ${noDirChecks} -eq 0 ]; then
   if [ ${remoteSource} -eq 1 ]; then
     ssh ${sshOptions} "${sourceUserHost}" "[ -d ${sourceDirScp} ]" && tmpVal=$? || tmpVal=$?
@@ -2398,6 +2409,7 @@ if [ ${noDirChecks} -eq 0 ]; then
 fi
 
 ###########################################################
+
 if [ ! -d "${metaDirLocal}" ]; then
   mkdir -p "${metaDirLocal}"
 fi
@@ -2535,7 +2547,8 @@ removeFromRemoteBackup=
 # MAKE SURE THAT EVENTUAL OBSOLETE LOCAL-MODE SHELLSCRIPTS 620, 630 AND 650 FROM Zaloha.sh ARE REMOVED
 files_not_prepared "${metaDirLocal}620_exec2.sh" "${metaDirLocal}630_exec3.sh" "${metaDirLocal}650_exec5.sh"
 
-###########################################################
+################ FLOWCHART STEP 1 #########################
+
 ${awk} '{ print }' << PARAMFILE > "${f000}"
 ${TRIPLET}${FSTAB}sourceDir${FSTAB}${sourceDir}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}sourceDirAwk${FSTAB}${sourceDirAwk}${FSTAB}${TRIPLET}
@@ -2636,7 +2649,8 @@ PARAMFILE
 
 copyToRemoteBackup+=( "${f000}" )
 
-###########################################################
+################ FLOWCHART STEPS 2 - 4 ####################
+
 ${awk} '{ print }' << 'AWKAWKPREPROC' > "${f100}"
 BEGIN {
   eex = "BEGIN {\n"                                                         \
@@ -2759,7 +2773,8 @@ BEGIN {
 }
 AWKACTIONS2TERM
 
-###########################################################
+################ FLOWCHART STEPS 5 - 11 ###################
+
 ${awk} -f "${f100}" << 'AWKPARSER' > "${f106}"
 DEFINE_ERROR_EXIT
 BEGIN {
@@ -2940,7 +2955,7 @@ copyToRemoteBackup+=( "${f205}" "${f220}" )
 
 stop_progress
 
-# copy to the remote side
+# copy the prepared FIND shellscripts and other metadata to the remote side
 
 if [ ${remoteSource} -eq 1 ]; then
 
@@ -3068,7 +3083,7 @@ else
 
 fi
 
-# copy CSV data back from the remote side
+# copy the obtained CSV metadata back from the remote side
 
 if [ '' != "${copyFromRemoteSource}" ]; then
 
@@ -3088,7 +3103,7 @@ elif [ '' != "${copyFromRemoteBackup}" ]; then
 
 fi
 
-# In case of --findParallel, wait for the background job
+# In case of --findParallel, wait for the background job to finish
 
 if [ ${findParallel} -eq 1 ]; then
 
@@ -3102,7 +3117,8 @@ if [ ${findParallel} -eq 1 ]; then
 
 fi
 
-###########################################################
+################ FLOWCHART STEPS 12 - 14 ##################
+
 ${awk} -f "${f100}" << 'AWKCLEANER' > "${f110}"
 DEFINE_ERROR_EXIT
 BEGIN {
@@ -3120,7 +3136,7 @@ function add_fragment_to_field( fragment, verbatim ) {
   if ( "" != fragment ) {
     fne = 1
   }
-  if ((( 14 == fin ) || ( 16 == fin )) && ( 0 == verbatim )) {                #  (in fields 14 and 16, convert slashes to TRIPLETS's)
+  if ((( 14 == fin ) || ( 16 == fin )) && ( 0 == verbatim )) {                #  (in fields 14 and 16, convert slashes to TRIPLETSs)
     gsub( SLASHREGEX, TRIPLETS, fragment )
   }
   rec = rec fragment
@@ -3162,7 +3178,7 @@ function add_fragment_to_field( fragment, verbatim ) {
       sha = ""
     }
     if ( "" != $14 ) {
-      $14 = $14 SLASH                                   #  (if field 14 is not empty, append slash and convert slashes to TRIPLETS's)
+      $14 = $14 SLASH                                   #  (if field 14 is not empty, append slash and convert slashes to TRIPLETSs)
       gsub( SLASHREGEX, TRIPLETS, $14 )
     }
     if ( "" != tsl ) {
@@ -3271,7 +3287,8 @@ optim_csv_after_use "${f320}"
 
 stop_progress
 
-###########################################################
+################ FLOWCHART STEPS 15 - 18 ##################
+
 ${awk} -f "${f100}" << 'AWKCHECKER' > "${f130}"
 DEFINE_ERROR_EXIT
 DEFINE_WARNING
@@ -3296,7 +3313,7 @@ function target_paths_check() {
   }
 }
 {
-  # switch to a new device: check modification times of files
+  # switch to a new device: perform per-device checks
   if ( dv != $7 ) {
     mtimes_check()
     cfd = 0
@@ -3309,7 +3326,7 @@ function target_paths_check() {
     error_exit( "Unexpected, cleaned CSV file does not contain 17 columns" )
   }
   if ( $1 != TRIPLET ) {
-    error_exit( "Unexpected, column 1 of cleaned file is not leading field" )
+    error_exit( "Unexpected, column 1 of cleaned file is not the leading field" )
   }
   if ( $2 !~ /[LSB]/ ) {
     error_exit( "Unexpected, column 2 of cleaned file (Source/Backup indicator) contains invalid value" )
@@ -3366,7 +3383,7 @@ function target_paths_check() {
     error_exit( "Unexpected, column 14 of cleaned file (file's path) is empty" )
   }
   if ( $15 != TRIPLET ) {
-    error_exit( "Unexpected, column 15 of cleaned file is not terminator field" )
+    error_exit( "Unexpected, column 15 of cleaned file is not the terminator field" )
   }
   if ( "l" == $3 ) {
     csd = csd + 1
@@ -3379,7 +3396,7 @@ function target_paths_check() {
     }
   }
   if ( $17 != TRIPLET ) {
-    error_exit( "Unexpected, column 17 of cleaned file is not terminator field" )
+    error_exit( "Unexpected, column 17 of cleaned file is not the terminator field" )
   }
   # this directories hierarchy check might reveal some <findSourceOps> and/or <findGeneralOps> errors,
   # e.g. subdirectory excluded but its contents not excluded
@@ -3425,7 +3442,8 @@ ${awk} -f "${f130}" -v checkDirs=1 -v sha256=${sha256} "${f340}"
 
 stop_progress
 
-###########################################################
+################ FLOWCHART STEPS 19 - 21 ##################
+
 ${awk} -f "${f100}" << 'AWKHLINKS' > "${f150}"
 DEFINE_ERROR_EXIT
 BEGIN {
@@ -3435,7 +3453,7 @@ BEGIN {
 }
 {
   # hardlink detection only for files
-  # device and inode numbers prepended by "M" to enforce string comparisons (numbers would overflow)
+  # device and inode numbers prepended by "M" to enforce string comparisons (numbers could overflow)
   if ( ( "f" == tp ) && ( "f" == $3 )                     \
     && ( $7 !~ ZEROREGEX ) && (( "M" dv ) == ( "M" $7 ))  \
     && ( $8 !~ ZEROREGEX ) && (( "M" id ) == ( "M" $8 ))  \
@@ -3466,7 +3484,7 @@ BEGIN {
       error_exit( "Unexpected falsely detected hardlink (SHA-256 hash differs)" )
     }
     $3 = "h"    # file's type is set to hardlink
-    $16 = pt    # path of first link (the "file") goes to column 16
+    $16 = pt    # path of first link (the "file") goes into column 16
     if ( "" != $16 ) {
       gsub( TRIPLETSREGEX, SLASH, $16 )
       $16 = substr( $16, 1, length( $16 ) - 1 )
@@ -3517,7 +3535,8 @@ else
 
 fi
 
-###########################################################
+################ FLOWCHART STEPS 22 - 24 ##################
+
 ${awk} -f "${f100}" << 'AWKDIFF' > "${f170}"
 DEFINE_ERROR_EXIT
 DEFINE_WARNING
@@ -3719,7 +3738,7 @@ function process_previous_record() {
               get_tolerance()
             }
             if ( 1 == oka ) {
-              if ( "M" $13 != "M" ha ) {       # size and time OK, but SHA-256 hash differs
+              if ( "M" $13 != "M" ha ) {       # size and time OK, but the SHA-256 hash differs
                 if (( 0 == noUnlink ) && ( 1 != nh )) {
                   print_curr_prev( "unl.UP.b" )
                 } else {
@@ -3845,7 +3864,8 @@ stop_progress
 
 optim_csv_after_use "${f370}"
 
-###########################################################
+################ FLOWCHART STEPS 25 - 27 ##################
+
 ${awk} -f "${f100}" << 'AWKPOSTPROC' > "${f190}"
 BEGIN {
   FS = FSTAB
@@ -3936,7 +3956,8 @@ stop_progress
 
 optim_csv_after_use "${f390}"
 
-###########################################################
+################ FLOWCHART STEPS 28 - 29 ##################
+
 ${awk} -f "${f100}" << 'AWKSELECT23' > "${f405}"
 BEGIN {
   FS = FSTAB
@@ -4015,7 +4036,7 @@ optim_csv_after_use "${f500}"
 
 copyToRemoteBackup+=( "${f505}" )
 
-###########################################################
+################ FLOWCHART STEP 30 ########################
 
 if [ ${byteByByte} -eq 1 ]; then
 
@@ -4071,7 +4092,8 @@ else
 
 fi
 
-###########################################################
+################ FLOWCHART STEPS 31 - 32 ##################
+
 ${awk} -f "${f100}" << 'AWKEXEC1' > "${f410}"
 DEFINE_ERROR_EXIT
 BEGIN {
@@ -4128,7 +4150,8 @@ stop_progress
 
 copyToRemoteBackup+=( "${f610}" )
 
-###########################################################
+################ FLOWCHART STEPS 33 - 34 ##################
+
 ${awk} -f "${f100}" << 'AWKEXEC2' > "${f420}"
 DEFINE_ERROR_EXIT
 BEGIN {
@@ -4352,7 +4375,8 @@ stop_progress
 
 copyToRemoteBackup+=( "${f621}" "${f623}" )
 
-###########################################################
+################ FLOWCHART STEPS 35 - 36 ##################
+
 ${awk} -f "${f100}" << 'AWKEXEC3' > "${f430}"
 DEFINE_ERROR_EXIT
 BEGIN {
@@ -4592,7 +4616,7 @@ else
 
 fi
 
-###########################################################
+################ FLOWCHART STEP 37 ########################
 
 if [ ${noRemove} -eq 0 ]; then
 
@@ -4620,7 +4644,7 @@ else
 
 fi
 
-###########################################################
+################ FLOWCHART STEP 38 ########################
 
 if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
 
@@ -4664,7 +4688,8 @@ else
 
 fi
 
-###########################################################
+################ FLOWCHART STEPS 39 - 40 ##################
+
 ${awk} -f "${f100}" << 'AWKTOUCH' > "${f490}"
 BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, metaDir )
@@ -4691,7 +4716,8 @@ stop_progress
 
 copyToRemoteBackup+=( "${f690}" )
 
-###########################################################
+################ FLOWCHART STEPS 41 - 42 ##################
+
 ${awk} -f "${f100}" << 'AWKRESTORE' > "${f700}"
 BEGIN {
   FS = FSTAB
@@ -4908,7 +4934,7 @@ fi
 
 ###########################################################
 
-# copy the prepared shellscripts and other metadata to the remote side
+# copy the prepared Exec shellscripts and other metadata to the remote side
 
 if [ ${remoteSource} -eq 1 ]; then
 
@@ -4932,7 +4958,7 @@ elif [ ${remoteBackup} -eq 1 ]; then
 
 fi
 
-###########################################################
+################ FLOWCHART STEPS 43 - 53 ##################
 
 # now all preparations are done, start executing ...
 
