@@ -169,17 +169,22 @@ removes (unlinks) them first (action code <b>unl.UP</b>), to prevent "updating"
 multiply linked files, which could lead to follow-up effects. This unlinking
 can be switched off via the <b>--noUnlink</b> option.
 
-If the files differ only in attributes (u=user ownership, g=group ownership,
-m=mode), and the synchronization of attributes is switched on via the <b>--pUser</b>,
-<b>--pGroup</b> and <b>--pMode</b> options, then these attributes will be synchronized
-(action code <b>ATTR</b>). However, this is an optional feature, because:
+Optionally, Zaloha can also synchronize attributes (u=user ownerships,
+g=group ownerships, m=modes (permission bits)). This functionality can be
+activated by the options <b>--pUser</b>, <b>--pGroup</b> and <b>--pMode.</b> The selected
+attributes are then preserved during each <b>MKDIR</b>, <b>NEW</b>, <b>UPDATE</b> and <b>unl.UP</b>
+action. Additionally, if these attributes differ on files and directories
+for which no action is prepared, special action codes <b>ATTR:ugm</b> are prepared to
+synchronize (only) the differing attributes.
+
+Synchronization of attributes is an optional feature, because:
 (1) the filesystem of &lt;backupDir&gt; might not be capable of storing these
 attributes, or (2) it may be wanted that all files and directories in
 &lt;backupDir&gt; are owned by the user who runs Zaloha.
 
-Regardless of whether these attributes are synchronized or not, an eventual
-restore of &lt;sourceDir&gt; from &lt;backupDir&gt; including these attributes is possible
-thanks to the restore scripts which Zaloha prepares in its metadata directory
+Regardless of whether attributes are synchronized or not, an eventual restore
+of &lt;sourceDir&gt; from &lt;backupDir&gt; including these attributes is possible thanks
+to the restore scripts which Zaloha prepares in its Metadata directory
 (see below).
 
 Zaloha contains an optional feature to detect multiply linked (hardlinked) files
@@ -240,7 +245,7 @@ then Zaloha uses that files to reverse-update the older files in &lt;sourceDir&g
 (action code <b>REV.UP</b>).
 
 Optionally, to preserve attributes during the <b>REV.MKDI</b>, <b>REV.NEW</b> and <b>REV.UP</b>
-operations: use options <b>--pRevUser</b>, <b>--pRevGroup</b> and <b>--pRevMode.</b>
+actions: use options <b>--pRevUser</b>, <b>--pRevGroup</b> and <b>--pRevMode.</b>
 
 If reverse-synchronization is not active: If no <b>--revNew</b> option is given,
 then each standalone file in &lt;backupDir&gt; is considered obsolete (and removed,
@@ -513,20 +518,15 @@ to backslashes inside.
                     (special case [SCC_OTHER_01] explained in Special Cases
                     section below)
 
-<b>--pUser</b>         ... synchronize user ownerships in &lt;backupDir&gt;
-                    based on &lt;sourceDir&gt;
+<b>--pUser</b>         ... preserve user ownerships, group ownerships and/or modes
+<b>--pGroup</b>            (permission bits) during <b>MKDIR</b>, <b>NEW</b>, <b>UPDATE</b> and <b>unl.UP</b>
+<b>--pMode</b>             actions. Additionally, if these attributes differ on files
+                    and directories for which no action is prepared, synchronize
+                    the differing attributes (action codes <b>ATTR:ugm</b>).
 
-<b>--pGroup</b>        ... synchronize group ownerships in &lt;backupDir&gt;
-                    based on &lt;sourceDir&gt;
-
-<b>--pMode</b>         ... synchronize modes (permission bits) in &lt;backupDir&gt;
-                    based on &lt;sourceDir&gt;
-
-<b>--pRevUser</b>      ... preserve user ownerships during REV operations
-
-<b>--pRevGroup</b>     ... preserve group ownerships during REV operations
-
-<b>--pRevMode</b>      ... preserve modes (permission bits) during REV operations
+<b>--pRevUser</b>      ... preserve user ownerships, group ownerships and/or modes
+<b>--pRevGroup</b>         (permission bits) during <b>REV.MKDI</b>, <b>REV.NEW</b> and <b>REV.UP</b>
+<b>--pRevMode</b>          actions
 
 <b>--followSLinksS</b> ... follow symbolic links on &lt;sourceDir&gt;
 <b>--followSLinksB</b> ... follow symbolic links on &lt;backupDir&gt;
@@ -595,7 +595,7 @@ to backslashes inside.
                     property in certain situations, e.g. if you do not want to
                     keep the Zaloha metadata directory. However, this sacrifices
                     features based on the last run of Zaloha: <b>REV.NEW</b> and
-                    distinction of operations on files newer than the last run
+                    distinction of actions on files newer than the last run
                     of Zaloha (e.g. distinction between <b>UPDATE.!</b> and <b>UPDATE</b>).
 
 <b>--noIdentCheck</b>  ... do not check if objects on identical paths in &lt;sourceDir&gt;
@@ -976,9 +976,9 @@ modes (permission bits)) if symbolic links are followed: the attributes are
 synchronized on the objects the symbolic links point to, not on the symbolic
 links themselves.
 
-Corner case removal operations: Eventual removal operations on places where the
+Corner case removal actions: Eventual removal actions on places where the
 structure is held together by the symbolic links are problematic. Zaloha will
-prepare the <b>REMOVE</b> (rm -f) or <b>RMDIR</b> (rmdir) operations due to the objects having
+prepare the <b>REMOVE</b> (rm -f) or <b>RMDIR</b> (rmdir) actions due to the objects having
 been reported to it as files or directories. However, if the objects are in
 reality symbolic links, "rm -f" removes the symbolic links themselves, not the
 referenced objects, and "rmdir" fails with the "Not a directory" error.
@@ -1130,7 +1130,7 @@ The backup directory is on a FAT-formatted USB flash drive. The synchronization
 executes without visible problems, but in the backup directory, only FILE.TXT
 exists after the synchronization.
 
-What happened is that the OS/filesystem re-directed all four copy operations
+What happened is that the OS/filesystem re-directed all four copy actions
 into FILE.TXT. Also, after three overwrites, the backup of only one of the
 four source files exists. Zaloha detects this situation on next synchronization
 and prepares new copy commands, but they again hit the same problem.
@@ -1479,7 +1479,7 @@ on the remote side in an SSH session. The subsequent sorts + AWK processing
 steps occur locally. The Exec1/2/3/4/5 steps are then executed as follows:
 
 Exec1: The shellscript 610 is run on the remote side "in one batch", because it
-contains only <b>RMDIR</b> and <b>REMOVE</b> operations to be executed on &lt;backupDir&gt;.
+contains only <b>RMDIR</b> and <b>REMOVE</b> actions to be executed on &lt;backupDir&gt;.
 
 Exec2: The shellscript 621 contains pre-copy actions and is run on the remote
 side "in one batch". The shellscript 622 contains the individual SCP commands
@@ -1495,7 +1495,7 @@ Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
 Note
 ----
-Running multiple operations on the remote side via SSH "in one batch" has
+Running multiple actions on the remote side via SSH "in one batch" has
 positive performance effects on networks with high latency, compared with
 running individual commands via SSH individually (which would require a network
 round-trip for each individual command).
@@ -1722,7 +1722,7 @@ Backup media overflow attack via hardlinks
 The attacker might hard-link a huge file many times, hoping that the backup
 program writes each link as a physical copy to the backup media ...
 
-Mitigation with Zaloha: perform hardlink detection (use the <b>--detectHLinksS</b>
+Mitigation with Zaloha: Perform hardlink detection (use the <b>--detectHLinksS</b>
 option)
 
 Backup media overflow attack via symbolic links
@@ -1731,7 +1731,7 @@ The attacker might create many symbolic links pointing to directories with huge
 contents (or to huge files), hoping that the backup program writes the contents
 pointed to by each such link as a physical copy to the backup media ...
 
-Mitigation with Zaloha: do not follow symbolic links on &lt;sourceDir&gt; (do not use
+Mitigation with Zaloha: Do not follow symbolic links on &lt;sourceDir&gt; (do not use
                         the <b>--followSLinksS</b> option)
 
 Unauthorized access via symbolic links
@@ -1740,7 +1740,7 @@ The attacker might create symbolic links to locations to which he has no access,
 hoping that within the restore process (which he might explicitly request for
 this purpose) the linked contents will be restored to his home directory ...
 
-Mitigation with Zaloha: do not follow symbolic links on &lt;sourceDir&gt; (do not use
+Mitigation with Zaloha: Do not follow symbolic links on &lt;sourceDir&gt; (do not use
                         the <b>--followSLinksS</b> option)
 
 Privilege escalation attacks
@@ -1756,12 +1756,21 @@ Mitigation with Zaloha: Prevent this scenario. Be specially careful with options
                         <b>--pMode</b> and <b>--pRevMode</b> and with the restore script
                         860_restore_mode.sh
 
+Attack on Zaloha metadata
+-------------------------
+The attacker might manipulate files in the Metadata directory of Zaloha, or in
+the Temporary Metadata directory of Zaloha, while Zaloha runs ...
+
+Mitigation with Zaloha: Make sure that the files in the Metadata directories
+are not writeable/executable by other users (set up correct umasks, review
+ownerships and modes of files that already exist).
+
 Shell code injection attacks
 ----------------------------
 The attacker might create a file in his home directory with a name that is
 actually a rogue shell code (e.g. '; rm -Rf ..'), hoping that the shell code
-will, due to some program flaw, be executed by a user with higher privileges.
+will, due to some program flaw, be executed by a user with higher privileges ...
 
-Mitigation with Zaloha: currently not aware of such vulnerability within Zaloha.
+Mitigation with Zaloha: Currently not aware of such vulnerability within Zaloha.
                         If found, please open a high priority issue on GitHub.
 </pre>

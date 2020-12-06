@@ -196,17 +196,22 @@ removes (unlinks) them first (action code unl.UP), to prevent "updating"
 multiply linked files, which could lead to follow-up effects. This unlinking
 can be switched off via the "--noUnlink" option.
 
-If the files differ only in attributes (u=user ownership, g=group ownership,
-m=mode), and the synchronization of attributes is switched on via the "--pUser",
-"--pGroup" and "--pMode" options, then these attributes will be synchronized
-(action code ATTR). However, this is an optional feature, because:
+Optionally, Zaloha can also synchronize attributes (u=user ownerships,
+g=group ownerships, m=modes (permission bits)). This functionality can be
+activated by the options "--pUser", "--pGroup" and "--pMode". The selected
+attributes are then preserved during each MKDIR, NEW, UPDATE and unl.UP
+action. Additionally, if these attributes differ on files and directories
+for which no action is prepared, special action codes ATTR:ugm are prepared to
+synchronize (only) the differing attributes.
+
+Synchronization of attributes is an optional feature, because:
 (1) the filesystem of <backupDir> might not be capable of storing these
 attributes, or (2) it may be wanted that all files and directories in
 <backupDir> are owned by the user who runs Zaloha.
 
-Regardless of whether these attributes are synchronized or not, an eventual
-restore of <sourceDir> from <backupDir> including these attributes is possible
-thanks to the restore scripts which Zaloha prepares in its metadata directory
+Regardless of whether attributes are synchronized or not, an eventual restore
+of <sourceDir> from <backupDir> including these attributes is possible thanks
+to the restore scripts which Zaloha prepares in its Metadata directory
 (see below).
 
 Zaloha contains an optional feature to detect multiply linked (hardlinked) files
@@ -267,7 +272,7 @@ then Zaloha uses that files to reverse-update the older files in <sourceDir>
 (action code REV.UP).
 
 Optionally, to preserve attributes during the REV.MKDI, REV.NEW and REV.UP
-operations: use options "--pRevUser", "--pRevGroup" and "--pRevMode".
+actions: use options "--pRevUser", "--pRevGroup" and "--pRevMode".
 
 If reverse-synchronization is not active: If no "--revNew" option is given,
 then each standalone file in <backupDir> is considered obsolete (and removed,
@@ -539,20 +544,15 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     (special case [SCC_OTHER_01] explained in Special Cases
                     section below)
 
---pUser         ... synchronize user ownerships in <backupDir>
-                    based on <sourceDir>
+--pUser         ... preserve user ownerships, group ownerships and/or modes
+--pGroup            (permission bits) during MKDIR, NEW, UPDATE and unl.UP
+--pMode             actions. Additionally, if these attributes differ on files
+                    and directories for which no action is prepared, synchronize
+                    the differing attributes (action codes ATTR:ugm).
 
---pGroup        ... synchronize group ownerships in <backupDir>
-                    based on <sourceDir>
-
---pMode         ... synchronize modes (permission bits) in <backupDir>
-                    based on <sourceDir>
-
---pRevUser      ... preserve user ownerships during REV operations
-
---pRevGroup     ... preserve group ownerships during REV operations
-
---pRevMode      ... preserve modes (permission bits) during REV operations
+--pRevUser      ... preserve user ownerships, group ownerships and/or modes
+--pRevGroup         (permission bits) during REV.MKDI, REV.NEW and REV.UP
+--pRevMode          actions
 
 --followSLinksS ... follow symbolic links on <sourceDir>
 --followSLinksB ... follow symbolic links on <backupDir>
@@ -621,7 +621,7 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     property in certain situations, e.g. if you do not want to
                     keep the Zaloha metadata directory. However, this sacrifices
                     features based on the last run of Zaloha: REV.NEW and
-                    distinction of operations on files newer than the last run
+                    distinction of actions on files newer than the last run
                     of Zaloha (e.g. distinction between UPDATE.! and UPDATE).
 
 --noIdentCheck  ... do not check if objects on identical paths in <sourceDir>
@@ -1000,9 +1000,9 @@ modes (permission bits)) if symbolic links are followed: the attributes are
 synchronized on the objects the symbolic links point to, not on the symbolic
 links themselves.
 
-Corner case removal operations: Eventual removal operations on places where the
+Corner case removal actions: Eventual removal actions on places where the
 structure is held together by the symbolic links are problematic. Zaloha will
-prepare the REMOVE (rm -f) or RMDIR (rmdir) operations due to the objects having
+prepare the REMOVE (rm -f) or RMDIR (rmdir) actions due to the objects having
 been reported to it as files or directories. However, if the objects are in
 reality symbolic links, "rm -f" removes the symbolic links themselves, not the
 referenced objects, and "rmdir" fails with the "Not a directory" error.
@@ -1152,7 +1152,7 @@ The backup directory is on a FAT-formatted USB flash drive. The synchronization
 executes without visible problems, but in the backup directory, only FILE.TXT
 exists after the synchronization.
 
-What happened is that the OS/filesystem re-directed all four copy operations
+What happened is that the OS/filesystem re-directed all four copy actions
 into FILE.TXT. Also, after three overwrites, the backup of only one of the
 four source files exists. Zaloha detects this situation on next synchronization
 and prepares new copy commands, but they again hit the same problem.
@@ -1498,7 +1498,7 @@ on the remote side in an SSH session. The subsequent sorts + AWK processing
 steps occur locally. The Exec1/2/3/4/5 steps are then executed as follows:
 
 Exec1: The shellscript 610 is run on the remote side "in one batch", because it
-contains only RMDIR and REMOVE operations to be executed on <backupDir>.
+contains only RMDIR and REMOVE actions to be executed on <backupDir>.
 
 Exec2: The shellscript 621 contains pre-copy actions and is run on the remote
 side "in one batch". The shellscript 622 contains the individual SCP commands
@@ -1514,7 +1514,7 @@ Exec5 (shellscripts 651, 652 and 653): same as Exec2
 
 Note
 ----
-Running multiple operations on the remote side via SSH "in one batch" has
+Running multiple actions on the remote side via SSH "in one batch" has
 positive performance effects on networks with high latency, compared with
 running individual commands via SSH individually (which would require a network
 round-trip for each individual command).
@@ -1737,7 +1737,7 @@ Backup media overflow attack via hardlinks
 The attacker might hard-link a huge file many times, hoping that the backup
 program writes each link as a physical copy to the backup media ...
 
-Mitigation with Zaloha: perform hardlink detection (use the "--detectHLinksS"
+Mitigation with Zaloha: Perform hardlink detection (use the "--detectHLinksS"
 option)
 
 Backup media overflow attack via symbolic links
@@ -1746,7 +1746,7 @@ The attacker might create many symbolic links pointing to directories with huge
 contents (or to huge files), hoping that the backup program writes the contents
 pointed to by each such link as a physical copy to the backup media ...
 
-Mitigation with Zaloha: do not follow symbolic links on <sourceDir> (do not use
+Mitigation with Zaloha: Do not follow symbolic links on <sourceDir> (do not use
                         the "--followSLinksS" option)
 
 Unauthorized access via symbolic links
@@ -1755,7 +1755,7 @@ The attacker might create symbolic links to locations to which he has no access,
 hoping that within the restore process (which he might explicitly request for
 this purpose) the linked contents will be restored to his home directory ...
 
-Mitigation with Zaloha: do not follow symbolic links on <sourceDir> (do not use
+Mitigation with Zaloha: Do not follow symbolic links on <sourceDir> (do not use
                         the "--followSLinksS" option)
 
 Privilege escalation attacks
@@ -1771,13 +1771,22 @@ Mitigation with Zaloha: Prevent this scenario. Be specially careful with options
                         "--pMode" and "--pRevMode" and with the restore script
                         860_restore_mode.sh
 
+Attack on Zaloha metadata
+-------------------------
+The attacker might manipulate files in the Metadata directory of Zaloha, or in
+the Temporary Metadata directory of Zaloha, while Zaloha runs ...
+
+Mitigation with Zaloha: Make sure that the files in the Metadata directories
+are not writeable/executable by other users (set up correct umasks, review
+ownerships and modes of files that already exist).
+
 Shell code injection attacks
 ----------------------------
 The attacker might create a file in his home directory with a name that is
 actually a rogue shell code (e.g. '; rm -Rf ..'), hoping that the shell code
-will, due to some program flaw, be executed by a user with higher privileges.
+will, due to some program flaw, be executed by a user with higher privileges ...
 
-Mitigation with Zaloha: currently not aware of such vulnerability within Zaloha.
+Mitigation with Zaloha: Currently not aware of such vulnerability within Zaloha.
                         If found, please open a high priority issue on GitHub.
 
 ###########################################################
@@ -1821,12 +1830,12 @@ f430Base='430_exec3.awk'             # AWK program for preparation of shellscrip
 f490Base='490_touch.awk'             # AWK program for preparation of shellscript to touch file 999_mark_executed
 
 f500Base='500_target_r.csv'          # differences result after splitting off Exec1 and Exec4 actions (= target state) reverse sorted
-f505Base='505_target.csv'            # target state (includes Exec2 and Exec3 actions) of synchronized directories
+f505Base='505_target.csv'            # target state (includes Exec2, Exec3 (and Exec5 from SHA-256 comparing) actions) of synchronized directories
 f510Base='510_exec1.csv'             # Exec1 actions (reverse sorted)
 f520Base='520_exec2.csv'             # Exec2 actions
 f530Base='530_exec3.csv'             # Exec3 actions
 f540Base='540_exec4.csv'             # Exec4 actions (reverse sorted)
-f550Base='550_exec5.csv'             # Exec5 actions
+f550Base='550_exec5.csv'             # Exec5 actions (from byte by byte comparing of files that appear identical or from SHA-256 comparing)
 f555Base='555_byte_by_byte.csv'      # result of byte by byte comparing of files that appear identical
 
 f610Base='610_exec1.sh'              # shellscript for Exec1 (in Remote Backup Mode to be executed on remote side in one batch)

@@ -72,8 +72,8 @@ This mode is activated by the option **--sourceUserHost**.
 ssh -nNf -o ControlMaster=yes -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@sourcehost'
 
 # Run Zaloha2.sh
-./Zaloha2.sh --sourceDir="test_source_remote"     \
-             --backupDir="test_backup_local"    \
+./Zaloha2.sh --sourceDir="test_source_remote"    \
+             --backupDir="test_backup_local"     \
              --sourceUserHost='user@sourcehost'  \
              --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
              --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
@@ -146,9 +146,9 @@ Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--
 &nbsp; | More stringent directories hierarchy check
 &nbsp; | More tolerant check of modification times of files (zero or even negative modification times are possible)
 &nbsp; | More tolerant check of target paths of symbolic links (empty target paths are possible on some OSes)
-&nbsp; | Minor code improvements and optimizations
+&nbsp; | Minor code improvements and optimizations + improved documentation
 Code size 76 kB | Code size 110 kB
-Docu size 78 kB | Docu size 95 kB
+Docu size 78 kB | Docu size 96 kB
 
 ## License
 MIT License
