@@ -554,6 +554,12 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --pRevGroup         (permission bits) during REV.MKDI, REV.NEW and REV.UP
 --pRevMode          actions
 
+                    Caution: In the Remote Source and Remote Backup Modes,
+                    modes (permission bits) are preserved during copying even
+                    without the "--pMode" and "--pRevMode" options. This is
+                    because "scp -p" preserves both the timestamps (which is
+                    desired) as well as the modes (which is unfortunate).
+
 --followSLinksS ... follow symbolic links on <sourceDir>
 --followSLinksB ... follow symbolic links on <backupDir>
                     Please see section Following Symbolic Links for details.
@@ -1601,7 +1607,8 @@ handling of <sshOptions> and <scpOptions>.
 
 Zaloha always invokes the SCP command with the "-p" option (this is hardcoded).
 This option instructs SCP to preserve timestamps during copying, but modes
-(permission bits) are preserved too, which is an (unavoidable) side effect.
+(permission bits) are preserved too, which is an (unavoidable and unfortunate)
+side effect.
 
 Eventual "at" signs (@) and colons (:) contained in directory names should not
 cause misinterpretations as users and hosts by SCP, because Zaloha prepends
@@ -1770,6 +1777,11 @@ and he will have access to this program ...
 Mitigation with Zaloha: Prevent this scenario. Be specially careful with options
                         "--pMode" and "--pRevMode" and with the restore script
                         860_restore_mode.sh
+
+Caution: In the Remote Source and Remote Backup Modes, modes (permission bits)
+are preserved during copying even without the "--pMode" and "--pRevMode"
+options. This is because "scp -p" preserves both the timestamps (which is
+desired) as well as the modes (which is unfortunate).
 
 Attack on Zaloha metadata
 -------------------------
