@@ -7,11 +7,11 @@ Zaloha2 is a small and simple directory synchronizer:
  * No compilation, installation and configuration is required.
  * Cyber-secure: No new binary code, no new open ports, easily reviewable.
  * Three operation modes are available: the Local Mode, the Remote Source Mode and the Remote Backup Mode.
- * Local Mode: Both directories are available locally
+ * **Local Mode:** Both directories are available locally
    (local HDD/SSD, flash drive, mounted Samba or NFS volume).
- * Remote Source Mode: the source directory is on a remote source host that can be reached via SSH/SCP
+ * **Remote Source Mode:** the source directory is on a remote source host that can be reached via SSH/SCP
    and the backup directory is available locally.
- * Remote Backup Mode: the source directory is available locally
+ * **Remote Backup Mode:** the source directory is available locally
    and the backup directory is on a remote backup host that can be reached via SSH/SCP.
  * Zaloha2 does not lock files while copying them. No writing on either directory may occur while Zaloha2 runs.
  * Zaloha2 always copies whole files via the operating system's CP command or the SCP command (= no delta-transfer like in RSYNC).
@@ -216,11 +216,11 @@ This mode is activated by the option <code>--sourceUserHost</code>.
 
  * The script for FIND scan of the source directory (file 210) is prepared locally.
  * The script is then copied to the remote source host via SCP and executed via SSH.
- * The obtained CSV metadata (file 310) is copied back from the source host via SCP.
+ * The obtained CSV metadata (file 310) is copied back from the remote source host via SCP.
  * The FIND scan of the backup directory occurs locally.
  * The CSV metadata is compared by a sequence of sorts and AWK processing steps (occurs locally).
  * The results (= prepared synchronization actions) are presented to the user for confirmation.
- * If the user confirms, the synchronization actions are executed.
+ * If the user confirms, the synchronization actions are executed (via SCP).
  * A non-interactive regime is available as well.
 
 ### Usage Example of the Remote Source Mode
@@ -230,11 +230,11 @@ This mode is activated by the option <code>--sourceUserHost</code>.
 ssh -nNf -o ControlMaster=yes -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@sourcehost'
 
 # Run Zaloha2.sh
-./Zaloha2.sh --sourceDir="test_source_remote"    \
-             --backupDir="test_backup_local"     \
-             --sourceUserHost='user@sourcehost'  \
-             --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
-             --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
+Zaloha2.sh --sourceDir="test_source_remote"    \
+           --backupDir="test_backup_local"     \
+           --sourceUserHost='user@sourcehost'  \
+           --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
+           --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
 
 # Terminate the SSH master connection
 ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@sourcehost'
@@ -264,11 +264,11 @@ This mode is activated by the option <code>--backupUserHost</code>.
 ssh -nNf -o ControlMaster=yes -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@backuphost'
 
 # Run Zaloha2.sh
-./Zaloha2.sh --sourceDir="test_source_local"     \
-             --backupDir="test_backup_remote"    \
-             --backupUserHost='user@backuphost'  \
-             --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
-             --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
+Zaloha2.sh --sourceDir="test_source_local"     \
+           --backupDir="test_backup_remote"    \
+           --backupUserHost='user@backuphost'  \
+           --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
+           --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
 
 # Terminate the SSH master connection
 ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@backuphost'
@@ -279,13 +279,15 @@ ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@backuphost'
 The option <code>--byteByByte</code> cannot be used in the Remote Modes,
 because the CMP command needs local access to both compared files.
 
-For the remote modes, a new option <code>--sha256</code> has been introduced.
+For the Remote Modes, a new option <code>--sha256</code> has been introduced.
 This option causes both FIND scans to additionally invoke SHA256SUM on each encountered file.
 Note that the SHA-256 hashes of the files are calculated on the hosts where the files are located.
 Also no contents of files are transferred over the network, just the SHA-256 hashes.
 The SHA-256 hashes are then compared to detect files that appear identical but their contents differ.
 
-## Performance tuning in the Remote Backup and Remote Source Modes
+The option <code>--sha256</code> can be used in the Local Mode too, of course.
+
+## Performance tuning in the Remote Source and Remote Backup Modes
 
 * The options <code>--noRestore</code> and <code>--mawk</code> (see above) are relevant for the Remote Modes as well.
 * The option <code>--findParallel</code> instructs Zaloha2 to run the FIND scans of the source and backup directories in parallel.
@@ -313,10 +315,10 @@ This allows to create **Time&nbsp;Machine**-like backup solutions.
 
 ## Full list of changes (Zaloha2.sh compared to Zaloha.sh)
 
-Some design changes break backward compatibility with the original (now obsolete) Zaloha.sh.
+Some design changes break backward compatibility with Zaloha.sh (the predecessor of Zaloha2.sh).
 For this reason, this repository is a new repository created specially for Zaloha2.sh.
 
-Zaloha.sh&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Zaloha2.sh
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Zaloha.sh&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Zaloha2.sh
 --------- | ----------
 &nbsp; | New option **--sourceUserHost** to activate the Remote Source Mode via SSH/SCP
 &nbsp; | New option **--backupUserHost** to activate the Remote Backup Mode via SSH/SCP
