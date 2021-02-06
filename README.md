@@ -42,6 +42,10 @@ On Linux/Unics, Zaloha2 runs natively. On Windows, Cygwin is needed.
 
 [Open Interactive JavaScript Flowchart here](https://fitus.github.io/flowchart.html).
 
+### An insight into the CSV metadata is given here
+
+[Open CSV data model here](https://fitus.github.io/data_model.html).
+
 ### Explained in full detail
 
 Read the relevant sections in the [Documentation](DOCUMENTATION.md).
@@ -285,7 +289,15 @@ Note that the SHA-256 hashes of the files are calculated on the hosts where the 
 Also no contents of files are transferred over the network, just the SHA-256 hashes.
 The SHA-256 hashes are then compared to detect files that appear identical but their contents differ.
 
-The option <code>--sha256</code> can be used in the Local Mode too, of course.
+### Other uses of the SHA-256 hashes
+
+The option <code>--sha256</code> is not limited to the Remote Modes – it can be used in the Local Mode too.
+CSV data about files that contain their SHA-256 hashes can be used for other purposes as well:
+
+Assume you have files with identical (duplicate) contents scattered across your filesystem, and you want to keep only one copy
+per unique file. In other words: de-duplicate files by content. The finding of files with duplicate contents can be achieved
+by sorting the CSV file 330 by the SHA-256 hashes (= by column 13) and evaluating the result, e.g. by a simple AWK program that
+prints out the files where the SHA-256 hash equals to the SHA-256 hash in the immediately preceding record in the sorted file ...
 
 ## Performance tuning in the Remote Source and Remote Backup Modes
 
