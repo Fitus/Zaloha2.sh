@@ -372,7 +372,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v backupUserHost="&lt;backupUserHost&gt;"    \
       -v remoteRestore=&lt;0 or 1&gt;               \
       -v restoreUserHost="&lt;restoreUserHost&gt;"  \
-      -v scpOptions="&lt;scpOptions&gt;"            \
+      -v scpExecOpt="&lt;scpExecOpt&gt;"            \
       -v f800="&lt;script 800 to be created&gt;"    \
       -v f810="&lt;script 810 to be created&gt;"    \
       -v f820="&lt;script 820 to be created&gt;"    \
@@ -423,12 +423,15 @@ to backslashes inside.
     backup host to be reached via SSH/SCP. Format: user@host
 
 <b>--sshOptions</b>=&lt;sshOptions&gt; are additional command-line options for the
-    SSH command, separated by spaces. Typical usage is explained in section
+    SSH commands, separated by spaces. Typical usage is explained in section
     Advanced Use of Zaloha - Remote Source and Remote Backup Modes.
 
 <b>--scpOptions</b>=&lt;scpOptions&gt; are additional command-line options for the
-    SCP command, separated by spaces. Typical usage is explained in section
+    SCP commands, separated by spaces. Typical usage is explained in section
     Advanced Use of Zaloha - Remote Source and Remote Backup Modes.
+
+<b>--scpExecOpt</b>=&lt;scpExecOpt&gt; can be used to override &lt;scpOptions&gt; specially for
+    the SCP commands used during the execution phase.
 
 <b>--findSourceOps</b>=&lt;findSourceOps&gt; are additional operands for the FIND command
     that scans &lt;sourceDir&gt;, to be used to exclude files or subdirectories in
@@ -1535,28 +1538,27 @@ After use, the SSH master connection should be terminated as follows:
 
 SCP Progress Meter
 ------------------
-SCP contains a Progress Meter that is very useful when copying large files.
+SCP contains a Progress Meter that is useful when copying large files.
 It continuously displays the percent of transfer done, the amount transferred,
 the bandwidth usage and the estimated time of arrival.
 
-The SCP Progress Meter does not display if SCP is given the "-q" option or if
-the standard output of SCP (= standard output of Zaloha) is not connected
-to a terminal (which is logical).
+In Zaloha, the SCP Progress Meters appear both in the analysis phase
+(copying of metadata files to/from the remote side) as well as in the
+execution phase (executions of the scripts 622, 632 and 652).
 
-In Zaloha, the SCP Progress Meter can appear both in the analysis phase
-(copying of metadata files to/from the remote side) as well as in the actual
-copy phase (execution of the scripts 622, 632 and 652).
-
-In the analysis phase, the display of the SCP Progress Meter (along with all
+In the analysis phase, the display of the SCP Progress Meters (along with all
 other analysis messages) can be switched off by the <b>--noProgress</b> option.
-Internally, this is achieved by passing the "-q" option to the SCP commands
-used during the analysis phase.
+Internally, this translates to the "-q" option for the respective SCP commands.
 
-In the actual copy phase, the SCP Progress Meter displays along with the shell
-traces. Internally, this is achieved by an I/O redirection which pipes the shell
-traces through the AWK filter 102 but keeps the standard output of the copy
-scripts connected to the standard output of Zaloha (which must be connected
-to a terminal in order for the SCP Progress Meter to appear).
+In the execution phase, the display of the SCP Progress Meters can be switched
+off via the option <b>--scpExecOpt</b> (= override &lt;scpOptions&gt; by SCP options with
+"-q" added).
+
+Technical note: SCP never displays its Progress Meter if it detects that its
+standard output is not connected to a terminal. To support the SCP Progress
+Meters in the execution phase, Zaloha does an I/O redirection which pipes the
+shell traces through the AWK filter 102 but keeps the standard output of the
+copy scripts connected to its own standard output.
 
 Windows / Cygwin notes:
 -----------------------
@@ -1565,11 +1567,11 @@ Make sure you use the Cygwin's version of OpenSSH, not the Windows' version.
 As of OpenSSH_8.3p1, the SSH connection multiplexing on Cygwin (still) doesn't
 seem to work, not even in the Proxy Multiplexing mode (-O proxy).
 
-To avoid repeated entering of passwords, set up SSH Public Key authentication.
+To avoid repeated entering of passwords, use the SSH Public Key authentication.
 
 Other SSH/SCP-related remarks:
 ------------------------------
-The remote source or backup directory &lt;sourceDir&gt; or &lt;backupDir&gt;, if relative,
+If the path of the remote &lt;sourceDir&gt; or &lt;backupDir&gt; is given relative, then it
 is relative to the SSH login directory of the user on the remote host.
 
 To use a different port, use also the options <b>--sshOptions</b> and <b>--scpOptions</b>
@@ -1626,12 +1628,10 @@ If additional updates of files result from comparisons of SHA-256 hashes,
 they will be executed in step Exec5 (same principle as for the <b>--byteByByte</b>
 option).
 
-Comparing contents of files via the SHA-256 hashes should be used when the
-source and backup directories reside on different hosts and the FIND scans are
-executed on those hosts (in Remote Source and Remote Backup Modes): The SHA-256
-hashes will then be calculated on each host locally and the comparisons of file
-contents require just the hashes to be transferred over the network, not the
-files themselves.
+The <b>--sha256</b> option has been developed for the Remote Modes, where the files
+to be compared reside on different hosts: The SHA-256 hashes are calculated
+on the respective hosts and for the comparisons of file contents, just the
+hashes are transferred over the network, not the files themselves.
 </pre>
 
 
@@ -1704,12 +1704,10 @@ The headers normally contain definitions used in the bodies of the scripts.
 Header-less scripts can be easily used with alternative headers that contain
 different definitions. This gives much flexibility:
 
-The "command variables" can be assigned to different commands (e.g. cp -&gt; scp).
-Own shell functions can be defined and assigned to the "command variables".
-This makes more elaborate processing possible, as well as calling commands that
-have different order of command line arguments. Next, the "directory variables"
-sourceDir and backupDir can be assigned to empty strings, thus causing the paths
-passed to the commands to be not prefixed by &lt;sourceDir&gt; and &lt;backupDir&gt;.
+The "command variables" can be assigned to different commands or own shell
+functions. The "directory variables" sourceDir and backupDir can be re-assigned
+as needed, e.g. to empty strings (which will cause the paths passed to the
+commands to be not prefixed by &lt;sourceDir&gt; and &lt;backupDir&gt;).
 </pre>
 
 

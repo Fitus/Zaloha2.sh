@@ -399,7 +399,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v backupUserHost="<backupUserHost>"    \
       -v remoteRestore=<0 or 1>               \
       -v restoreUserHost="<restoreUserHost>"  \
-      -v scpOptions="<scpOptions>"            \
+      -v scpExecOpt="<scpExecOpt>"            \
       -v f800="<script 800 to be created>"    \
       -v f810="<script 810 to be created>"    \
       -v f820="<script 820 to be created>"    \
@@ -449,12 +449,15 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
     backup host to be reached via SSH/SCP. Format: user@host
 
 --sshOptions=<sshOptions> are additional command-line options for the
-    SSH command, separated by spaces. Typical usage is explained in section
+    SSH commands, separated by spaces. Typical usage is explained in section
     Advanced Use of Zaloha - Remote Source and Remote Backup Modes.
 
 --scpOptions=<scpOptions> are additional command-line options for the
-    SCP command, separated by spaces. Typical usage is explained in section
+    SCP commands, separated by spaces. Typical usage is explained in section
     Advanced Use of Zaloha - Remote Source and Remote Backup Modes.
+
+--scpExecOpt=<scpExecOpt> can be used to override <scpOptions> specially for
+    the SCP commands used during the execution phase.
 
 --findSourceOps=<findSourceOps> are additional operands for the FIND command
     that scans <sourceDir>, to be used to exclude files or subdirectories in
@@ -1554,28 +1557,27 @@ After use, the SSH master connection should be terminated as follows:
 
 SCP Progress Meter
 ------------------
-SCP contains a Progress Meter that is very useful when copying large files.
+SCP contains a Progress Meter that is useful when copying large files.
 It continuously displays the percent of transfer done, the amount transferred,
 the bandwidth usage and the estimated time of arrival.
 
-The SCP Progress Meter does not display if SCP is given the "-q" option or if
-the standard output of SCP (= standard output of Zaloha) is not connected
-to a terminal (which is logical).
+In Zaloha, the SCP Progress Meters appear both in the analysis phase
+(copying of metadata files to/from the remote side) as well as in the
+execution phase (executions of the scripts 622, 632 and 652).
 
-In Zaloha, the SCP Progress Meter can appear both in the analysis phase
-(copying of metadata files to/from the remote side) as well as in the actual
-copy phase (execution of the scripts 622, 632 and 652).
-
-In the analysis phase, the display of the SCP Progress Meter (along with all
+In the analysis phase, the display of the SCP Progress Meters (along with all
 other analysis messages) can be switched off by the "--noProgress" option.
-Internally, this is achieved by passing the "-q" option to the SCP commands
-used during the analysis phase.
+Internally, this translates to the "-q" option for the respective SCP commands.
 
-In the actual copy phase, the SCP Progress Meter displays along with the shell
-traces. Internally, this is achieved by an I/O redirection which pipes the shell
-traces through the AWK filter 102 but keeps the standard output of the copy
-scripts connected to the standard output of Zaloha (which must be connected
-to a terminal in order for the SCP Progress Meter to appear).
+In the execution phase, the display of the SCP Progress Meters can be switched
+off via the option "--scpExecOpt" (= override <scpOptions> by SCP options with
+"-q" added).
+
+Technical note: SCP never displays its Progress Meter if it detects that its
+standard output is not connected to a terminal. To support the SCP Progress
+Meters in the execution phase, Zaloha does an I/O redirection which pipes the
+shell traces through the AWK filter 102 but keeps the standard output of the
+copy scripts connected to its own standard output.
 
 Windows / Cygwin notes:
 -----------------------
@@ -1584,11 +1586,11 @@ Make sure you use the Cygwin's version of OpenSSH, not the Windows' version.
 As of OpenSSH_8.3p1, the SSH connection multiplexing on Cygwin (still) doesn't
 seem to work, not even in the Proxy Multiplexing mode (-O proxy).
 
-To avoid repeated entering of passwords, set up SSH Public Key authentication.
+To avoid repeated entering of passwords, use the SSH Public Key authentication.
 
 Other SSH/SCP-related remarks:
 ------------------------------
-The remote source or backup directory <sourceDir> or <backupDir>, if relative,
+If the path of the remote <sourceDir> or <backupDir> is given relative, then it
 is relative to the SSH login directory of the user on the remote host.
 
 To use a different port, use also the options "--sshOptions" and "--scpOptions"
@@ -1644,12 +1646,10 @@ If additional updates of files result from comparisons of SHA-256 hashes,
 they will be executed in step Exec5 (same principle as for the "--byteByByte"
 option).
 
-Comparing contents of files via the SHA-256 hashes should be used when the
-source and backup directories reside on different hosts and the FIND scans are
-executed on those hosts (in Remote Source and Remote Backup Modes): The SHA-256
-hashes will then be calculated on each host locally and the comparisons of file
-contents require just the hashes to be transferred over the network, not the
-files themselves.
+The "--sha256" option has been developed for the Remote Modes, where the files
+to be compared reside on different hosts: The SHA-256 hashes are calculated
+on the respective hosts and for the comparisons of file contents, just the
+hashes are transferred over the network, not the files themselves.
 
 ###########################################################
 
@@ -1720,12 +1720,10 @@ The headers normally contain definitions used in the bodies of the scripts.
 Header-less scripts can be easily used with alternative headers that contain
 different definitions. This gives much flexibility:
 
-The "command variables" can be assigned to different commands (e.g. cp -> scp).
-Own shell functions can be defined and assigned to the "command variables".
-This makes more elaborate processing possible, as well as calling commands that
-have different order of command line arguments. Next, the "directory variables"
-sourceDir and backupDir can be assigned to empty strings, thus causing the paths
-passed to the commands to be not prefixed by <sourceDir> and <backupDir>.
+The "command variables" can be assigned to different commands or own shell
+functions. The "directory variables" sourceDir and backupDir can be re-assigned
+as needed, e.g. to empty strings (which will cause the paths passed to the
+commands to be not prefixed by <sourceDir> and <backupDir>).
 
 ###########################################################
 
@@ -2014,6 +2012,8 @@ sshOptions=
 sshOptionsPassed=0
 scpOptions=
 scpOptionsPassed=0
+scpExecOpt=
+scpExecOptPassed=0
 findSourceOps=
 findGeneralOps=
 findGeneralOpsPassed=0
@@ -2068,7 +2068,6 @@ noR840Hdr=0
 noR850Hdr=0
 noR860Hdr=0
 noProgress=0
-scpQuiet=
 color=0
 mawk=0
 lTest=0
@@ -2077,12 +2076,13 @@ help=0
 for tmpVal in "${@}"
 do
   case "${tmpVal}" in
-    --sourceDir=*)       opt_dupli_check ${sourceDirPassed} "${tmpVal%%=*}";  sourceDir="${tmpVal#*=}";  sourceDirPassed=1 ;;
-    --backupDir=*)       opt_dupli_check ${backupDirPassed} "${tmpVal%%=*}";  backupDir="${tmpVal#*=}";  backupDirPassed=1 ;;
+    --sourceDir=*)       opt_dupli_check ${sourceDirPassed} "${tmpVal%%=*}";   sourceDir="${tmpVal#*=}";  sourceDirPassed=1 ;;
+    --backupDir=*)       opt_dupli_check ${backupDirPassed} "${tmpVal%%=*}";   backupDir="${tmpVal#*=}";  backupDirPassed=1 ;;
     --sourceUserHost=*)  opt_dupli_check ${remoteSource} "${tmpVal%%=*}";      sourceUserHost="${tmpVal#*=}";  remoteSource=1 ;;
     --backupUserHost=*)  opt_dupli_check ${remoteBackup} "${tmpVal%%=*}";      backupUserHost="${tmpVal#*=}";  remoteBackup=1 ;;
     --sshOptions=*)      opt_dupli_check ${sshOptionsPassed} "${tmpVal%%=*}";  sshOptions="${tmpVal#*=}";  sshOptionsPassed=1 ;;
     --scpOptions=*)      opt_dupli_check ${scpOptionsPassed} "${tmpVal%%=*}";  scpOptions="${tmpVal#*=}";  scpOptionsPassed=1 ;;
+    --scpExecOpt=*)      opt_dupli_check ${scpExecOptPassed} "${tmpVal%%=*}";  scpExecOpt="${tmpVal#*=}";  scpExecOptPassed=1 ;;
     --findSourceOps=*)   findSourceOps+="${tmpVal#*=} " ;;
     --findGeneralOps=*)  findGeneralOps+="${tmpVal#*=} ";  findGeneralOpsPassed=1 ;;
     --findParallel)      opt_dupli_check ${findParallel} "${tmpVal}";   findParallel=1 ;;
@@ -2133,7 +2133,7 @@ do
     --noR840Hdr)         opt_dupli_check ${noR840Hdr} "${tmpVal}";      noR840Hdr=1 ;;
     --noR850Hdr)         opt_dupli_check ${noR850Hdr} "${tmpVal}";      noR850Hdr=1 ;;
     --noR860Hdr)         opt_dupli_check ${noR860Hdr} "${tmpVal}";      noR860Hdr=1 ;;
-    --noProgress)        opt_dupli_check ${noProgress} "${tmpVal}";     noProgress=1;  scpQuiet='-q' ;;
+    --noProgress)        opt_dupli_check ${noProgress} "${tmpVal}";     noProgress=1 ;;
     --color)             opt_dupli_check ${color} "${tmpVal}";          color=1 ;;
     --mawk)              opt_dupli_check ${mawk} "${tmpVal}";           mawk=1 ;;
     --lTest)             opt_dupli_check ${lTest} "${tmpVal}";          lTest=1 ;;
@@ -2164,6 +2164,9 @@ else
   if [ ${scpOptionsPassed} -eq 1 ]; then
     error_exit 'Option --scpOptions may be used only in Remote Source or Remote Backup Mode'
   fi
+  if [ ${scpExecOptPassed} -eq 1 ]; then
+    error_exit 'Option --scpExecOpt may be used only in Remote Source or Remote Backup Mode'
+  fi
   if [ ${findParallel} -eq 1 ]; then
     error_exit 'Option --findParallel may be used only in Remote Source or Remote Backup Mode'
   fi
@@ -2192,6 +2195,16 @@ if [ ${noExec} -eq 0 ]; then
     error_exit 'Options --no610Hdr through --no653Hdr can be used only together with option --noExec'
   fi
 fi
+
+scpMetaOpt="${scpOptions}"
+if [ ${noProgress} -eq 1 ]; then
+  scpMetaOpt="-q ${scpMetaOpt}"
+fi
+
+if [ ${scpExecOptPassed} -eq 0 ]; then
+  scpExecOpt="${scpOptions}"
+fi
+scpExecOptAwk="${scpExecOpt//${BSLASHPATTERN}/${TRIPLETB}}"
 
 if [ ${mawk} -eq 1 ]; then
   awk='mawk'
@@ -2283,8 +2296,6 @@ if [ ${remoteBackup} -eq 1 ]; then
   backupUserHostDirTerm="${backupUserHost}:${backupUserHostDirTerm}"
 fi
 backupUserHostAwk="${backupUserHost//${BSLASHPATTERN}/${TRIPLETB}}"
-
-scpOptionsAwk="${scpOptions//${BSLASHPATTERN}/${TRIPLETB}}"
 
 ###########################################################
 
@@ -2590,8 +2601,12 @@ ${TRIPLET}${FSTAB}backupUserHost${FSTAB}${backupUserHost}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}backupUserHostAwk${FSTAB}${backupUserHostAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}remoteBackup${FSTAB}${remoteBackup}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}sshOptions${FSTAB}${sshOptions}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}sshOptionsPassed${FSTAB}${sshOptionsPassed}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}scpOptions${FSTAB}${scpOptions}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}scpOptionsAwk${FSTAB}${scpOptionsAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}scpOptionsPassed${FSTAB}${scpOptionsPassed}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}scpExecOpt${FSTAB}${scpExecOpt}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}scpExecOptAwk${FSTAB}${scpExecOptAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}scpExecOptPassed${FSTAB}${scpExecOptPassed}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findSourceOps${FSTAB}${findSourceOps}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findSourceOpsAwk${FSTAB}${findSourceOpsAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findSourceOpsEsc${FSTAB}${findSourceOpsEsc}${FSTAB}${TRIPLET}
@@ -2686,7 +2701,6 @@ BEGIN {
         "    }\n"                                                           \
         "    gsub( CNTRLREGEX, TRIPLETC, msg )\n"                           \
         "    print \"\\nZaloha AWK: \" msg > \"/dev/stderr\"\n"             \
-        "    close( \"/dev/stderr\" )\n"                                    \
         "    exit 1\n"                                                      \
         "  }\n"                                                             \
         "}"
@@ -2694,7 +2708,6 @@ BEGIN {
         "  if ( \"\" == error_exit_filename ) {\n"                          \
         "    gsub( CNTRLREGEX, TRIPLETC, msg )\n"                           \
         "    print \"\\nZaloha AWK: Warning: \" msg > \"/dev/stderr\"\n"    \
-        "    close( \"/dev/stderr\" )\n"                                    \
         "  }\n"                                                             \
         "}"
   mpa = 8     # MAXPARALLEL constant
@@ -2982,7 +2995,7 @@ if [ ${remoteSource} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
+  scp -p ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
 
   progress_scp_meta '>'
 
@@ -2992,7 +3005,7 @@ elif [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
+  scp -p ${scpMetaOpt} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
 
   progress_scp_meta '>'
 
@@ -3110,7 +3123,7 @@ if [ '' != "${copyFromRemoteSource}" ]; then
 
   progress_scp_meta '<'
 
-  scp -p ${scpQuiet} ${scpOptions} "${sourceUserHost}:${copyFromRemoteSource}" "${metaDirLocal}"
+  scp -p ${scpMetaOpt} "${sourceUserHost}:${copyFromRemoteSource}" "${metaDirLocal}"
 
   progress_scp_meta '<'
 
@@ -3118,7 +3131,7 @@ elif [ '' != "${copyFromRemoteBackup}" ]; then
 
   progress_scp_meta '<'
 
-  scp -p ${scpQuiet} ${scpOptions} "${backupUserHost}:${copyFromRemoteBackup}" "${metaDirLocal}"
+  scp -p ${scpMetaOpt} "${backupUserHost}:${copyFromRemoteBackup}" "${metaDirLocal}"
 
   progress_scp_meta '<'
 
@@ -3400,8 +3413,13 @@ function target_paths_check() {
       error_exit( "Unexpected, column 13 of cleaned file does not contain the 0 constant" )
     }
   }
-  if (( 1 != NR ) && ( $14 == "" )) {
-    error_exit( "Unexpected, column 14 of cleaned file (file's path) is empty" )
+  if ( $14 == "" ) {
+    if ( 1 != NR ) {
+      error_exit( "Unexpected, column 14 of cleaned file (file's path) is empty for other than first record" )
+    }
+    if ( "d" != $3 ) {
+      error_exit( "Unexpected, column 14 of cleaned file (file's path) is empty for other first record than a directory" )
+    }
   }
   if ( $15 != TRIPLET ) {
     error_exit( "Unexpected, column 15 of cleaned file is not the terminator field" )
@@ -4182,7 +4200,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, backupDir )
   gsub( TRIPLETBREGEX, BSLASH, sourceUserHost )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
-  gsub( TRIPLETBREGEX, BSLASH, scpOptions )
+  gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
   gsub( TRIPLETBREGEX, BSLASH, f621 )
   gsub( TRIPLETBREGEX, BSLASH, f622 )
   gsub( TRIPLETBREGEX, BSLASH, f623 )
@@ -4192,7 +4210,7 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
   gsub( QUOTEREGEX, QUOTEESC, sourceUserHost )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
-  gsub( QUOTEREGEX, QUOTEESC, scpOptions )
+  gsub( QUOTEREGEX, QUOTEESC, scpExecOpt )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", sourceDirScp )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   if ( 0 == no621Hdr ) {
@@ -4230,7 +4248,7 @@ BEGIN {
       print "backupDir='" backupDir "'" > f622
     }
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f622
+      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpExecOpt "'" > f622
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f622
@@ -4377,7 +4395,7 @@ ${awk} -f "${f420}"                              \
        -v sourceUserHost="${sourceUserHostAwk}"  \
        -v remoteBackup=${remoteBackup}           \
        -v backupUserHost="${backupUserHostAwk}"  \
-       -v scpOptions="${scpOptionsAwk}"          \
+       -v scpExecOpt="${scpExecOptAwk}"          \
        -v noExec=${noExec}                       \
        -v noUnlink=${noUnlink}                   \
        -v extraTouch=${extraTouch}               \
@@ -4407,7 +4425,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, backupDir )
   gsub( TRIPLETBREGEX, BSLASH, sourceUserHost )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
-  gsub( TRIPLETBREGEX, BSLASH, scpOptions )
+  gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
   gsub( TRIPLETBREGEX, BSLASH, f631 )
   gsub( TRIPLETBREGEX, BSLASH, f632 )
   gsub( TRIPLETBREGEX, BSLASH, f633 )
@@ -4417,7 +4435,7 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
   gsub( QUOTEREGEX, QUOTEESC, sourceUserHost )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
-  gsub( QUOTEREGEX, QUOTEESC, scpOptions )
+  gsub( QUOTEREGEX, QUOTEESC, scpExecOpt )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", sourceDirScp )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   if ( 0 == no631Hdr ) {
@@ -4463,7 +4481,7 @@ BEGIN {
       print "backupDir='" backupDir "'" > f632
     }
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f632
+      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpExecOpt "'" > f632
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f632
@@ -4607,7 +4625,7 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
          -v sourceUserHost="${sourceUserHostAwk}"  \
          -v remoteBackup=${remoteBackup}           \
          -v backupUserHost="${backupUserHostAwk}"  \
-         -v scpOptions="${scpOptionsAwk}"          \
+         -v scpExecOpt="${scpExecOptAwk}"          \
          -v noExec=${noExec}                       \
          -v extraTouch=${extraTouch}               \
          -v pRevUser=${pRevUser}                   \
@@ -4678,7 +4696,7 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
          -v sourceUserHost="${sourceUserHostAwk}"  \
          -v remoteBackup=${remoteBackup}           \
          -v backupUserHost="${backupUserHostAwk}"  \
-         -v scpOptions="${scpOptionsAwk}"          \
+         -v scpExecOpt="${scpExecOptAwk}"          \
          -v noExec=${noExec}                       \
          -v noUnlink=${noUnlink}                   \
          -v extraTouch=${extraTouch}               \
@@ -4747,7 +4765,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, restoreDir )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
   gsub( TRIPLETBREGEX, BSLASH, restoreUserHost )
-  gsub( TRIPLETBREGEX, BSLASH, scpOptions )
+  gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
   gsub( TRIPLETBREGEX, BSLASH, f800 )
   gsub( TRIPLETBREGEX, BSLASH, f810 )
   gsub( TRIPLETBREGEX, BSLASH, f820 )
@@ -4761,7 +4779,7 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, restoreDir )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, restoreUserHost )
-  gsub( QUOTEREGEX, QUOTEESC, scpOptions )
+  gsub( QUOTEREGEX, QUOTEESC, scpExecOpt )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", restoreDirScp )
   if ( 0 == noR800Hdr ) {
@@ -4783,7 +4801,7 @@ BEGIN {
       print "restoreDir='" restoreDir "'" > f810
     }
     if (( 1 == remoteBackup ) || ( 1 == remoteRestore )) {
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpOptions "'" > f810
+      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpExecOpt "'" > f810
     } else {
       print "CP" ONE_TO_MAXPARALLEL "='cp'" > f810
       print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f810
@@ -4923,7 +4941,7 @@ if [ ${noRestore} -eq 0 ]; then
          -v backupUserHost="${backupUserHostAwk}"   \
          -v remoteRestore=${remoteSource}           \
          -v restoreUserHost="${sourceUserHostAwk}"  \
-         -v scpOptions="${scpOptionsAwk}"           \
+         -v scpExecOpt="${scpExecOptAwk}"           \
          -v f800="${f800Awk}"                       \
          -v f810="${f810Awk}"                       \
          -v f820="${f820Awk}"                       \
@@ -4961,7 +4979,7 @@ if [ ${remoteSource} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
+  scp -p ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
 
   ssh ${sshOptions} "${sourceUserHost}" "rm -f ${removeFromRemoteSource}"
 
@@ -4971,7 +4989,7 @@ elif [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpQuiet} ${scpOptions} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
+  scp -p ${scpMetaOpt} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
 
   ssh ${sshOptions} "${backupUserHost}" "rm -f ${removeFromRemoteBackup}"
 
