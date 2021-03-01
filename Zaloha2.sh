@@ -402,6 +402,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v scpExecOpt="<scpExecOpt>"            \
       -v f800="<script 800 to be created>"    \
       -v f810="<script 810 to be created>"    \
+      -v f815="<script 815 to be created>"    \
       -v f820="<script 820 to be created>"    \
       -v f830="<script 830 to be created>"    \
       -v f840="<script 840 to be created>"    \
@@ -409,6 +410,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v f860="<script 860 to be created>"    \
       -v noR800Hdr=<0 or 1>                   \
       -v noR810Hdr=<0 or 1>                   \
+      -v noR815Hdr=<0 or 1>                   \
       -v noR820Hdr=<0 or 1>                   \
       -v noR830Hdr=<0 or 1>                   \
       -v noR840Hdr=<0 or 1>                   \
@@ -557,12 +559,6 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --pRevGroup         (permission bits) during REV.MKDI, REV.NEW and REV.UP
 --pRevMode          actions
 
-                    Caution: In the Remote Source and Remote Backup Modes,
-                    modes (permission bits) are preserved during copying even
-                    without the "--pMode" and "--pRevMode" options. This is
-                    because "scp -p" preserves both the timestamps (which is
-                    desired) as well as the modes (which is unfortunate).
-
 --followSLinksS ... follow symbolic links on <sourceDir>
 --followSLinksB ... follow symbolic links on <backupDir>
                     Please see section Following Symbolic Links for details.
@@ -663,6 +659,7 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 
 --noR800Hdr     ... do not write header to the restore script 800
 --noR810Hdr     ... do not write header to the restore script 810
+--noR815Hdr     ... do not write header to the restore script 815
 --noR820Hdr     ... do not write header to the restore script 820
 --noR830Hdr     ... do not write header to the restore script 830
 --noR840Hdr     ... do not write header to the restore script 840
@@ -1372,6 +1369,8 @@ in <sourceDir> and other object in <backupDir>: File 505 then contains an
 OK record for the former and a KEEP record for the latter, both with the
 same file's path (column 14).
 
+  Data model as HTML table: https://fitus.github.io/data_model.html
+
 ###########################################################
 
 TECHNIQUES USED BY ZALOHA TO HANDLE WEIRD CHARACTERS IN FILENAMES
@@ -1607,10 +1606,15 @@ that would themselves contain spaces or metacharacters that would undergo
 additional shell expansions, also Zaloha does not contain any sophisticated
 handling of <sshOptions> and <scpOptions>.
 
-Zaloha always invokes the SCP command with the "-p" option (this is hardcoded).
-This option instructs SCP to preserve timestamps during copying, but modes
-(permission bits) are preserved too, which is an (unavoidable and unfortunate)
-side effect.
+The option "--scpExecOpt" can be used to override <scpOptions> specially for
+the SCP commands used during the execution phase. If the option "--scpExecOpt"
+is not given, <scpOptions> applies to all SCP commands (= to those used in the
+analysis phase as well as to those used in the execution phase).
+
+Zaloha does not use the "-p" option of scp to preserve times of files, because
+this option has a side effect (that is not always wanted) of preserving the
+modes too. Explicit TOUCH commands in the post-copy scripts are used instead.
+They preserve the modification times (only).
 
 Eventual "at" signs (@) and colons (:) contained in directory names should not
 cause misinterpretations as users and hosts by SCP, because Zaloha prepends
@@ -1650,6 +1654,13 @@ The "--sha256" option has been developed for the Remote Modes, where the files
 to be compared reside on different hosts: The SHA-256 hashes are calculated
 on the respective hosts and for the comparisons of file contents, just the
 hashes are transferred over the network, not the files themselves.
+
+The "--sha256" option is not limited to the Remote Modes - it can be used in
+the Local Mode too. Having CSV metadata that contains the SHA-256 hashes may
+be useful for other purposes as well, e.g. for de-duplication of files by
+content in the source directory: by sorting the CSV file 330 by the SHA-256
+hashes (column 13) one obtains a CSV file where the files with identical
+contents are located in adjacent records.
 
 ###########################################################
 
@@ -1776,11 +1787,6 @@ Mitigation with Zaloha: Prevent this scenario. Be specially careful with options
                         "--pMode" and "--pRevMode" and with the restore script
                         860_restore_mode.sh
 
-Caution: In the Remote Source and Remote Backup Modes, modes (permission bits)
-are preserved during copying even without the "--pMode" and "--pRevMode"
-options. This is because "scp -p" preserves both the timestamps (which is
-desired) as well as the modes (which is unfortunate).
-
 Attack on Zaloha metadata
 -------------------------
 The attacker might manipulate files in the Metadata directory of Zaloha, or in
@@ -1865,6 +1871,7 @@ f700Base='700_restore.awk'           # AWK program for preparation of shellscrip
 
 f800Base='800_restore_dirs.sh'       # for the case of restore: shellscript to restore directories
 f810Base='810_restore_files.sh'      # for the case of restore: shellscript to restore files
+f815Base='815_restore_times.sh'      # for the case of restore: shellscript to restore times of files
 f820Base='820_restore_sym_links.sh'  # for the case of restore: shellscript to restore symbolic links
 f830Base='830_restore_hardlinks.sh'  # for the case of restore: shellscript to restore hardlinks
 f840Base='840_restore_user_own.sh'   # for the case of restore: shellscript to restore user ownerships
@@ -2062,6 +2069,7 @@ no652Hdr=0
 no653Hdr=0
 noR800Hdr=0
 noR810Hdr=0
+noR815Hdr=0
 noR820Hdr=0
 noR830Hdr=0
 noR840Hdr=0
@@ -2128,6 +2136,7 @@ do
     --no653Hdr)          opt_dupli_check ${no653Hdr} "${tmpVal}";       no653Hdr=1 ;;
     --noR800Hdr)         opt_dupli_check ${noR800Hdr} "${tmpVal}";      noR800Hdr=1 ;;
     --noR810Hdr)         opt_dupli_check ${noR810Hdr} "${tmpVal}";      noR810Hdr=1 ;;
+    --noR815Hdr)         opt_dupli_check ${noR815Hdr} "${tmpVal}";      noR815Hdr=1 ;;
     --noR820Hdr)         opt_dupli_check ${noR820Hdr} "${tmpVal}";      noR820Hdr=1 ;;
     --noR830Hdr)         opt_dupli_check ${noR830Hdr} "${tmpVal}";      noR830Hdr=1 ;;
     --noR840Hdr)         opt_dupli_check ${noR840Hdr} "${tmpVal}";      noR840Hdr=1 ;;
@@ -2498,6 +2507,7 @@ f690="${metaDirLocal}${f690Base}"
 f700="${metaDirLocal}${f700Base}"
 f800="${metaDirLocal}${f800Base}"
 f810="${metaDirLocal}${f810Base}"
+f815="${metaDirLocal}${f815Base}"
 f820="${metaDirLocal}${f820Base}"
 f830="${metaDirLocal}${f830Base}"
 f840="${metaDirLocal}${f840Base}"
@@ -2521,6 +2531,7 @@ f652Awk="${metaDirLocalAwk}${f652Base}"
 f653Awk="${metaDirLocalAwk}${f653Base}"
 f800Awk="${metaDirLocalAwk}${f800Base}"
 f810Awk="${metaDirLocalAwk}${f810Base}"
+f815Awk="${metaDirLocalAwk}${f815Base}"
 f820Awk="${metaDirLocalAwk}${f820Base}"
 f830Awk="${metaDirLocalAwk}${f830Base}"
 f840Awk="${metaDirLocalAwk}${f840Base}"
@@ -2565,6 +2576,7 @@ f690RemoteBackupScp="${metaDirScp}${f690Base}"
 f700RemoteBackupScp="${metaDirScp}${f700Base}"
 f800RemoteBackupScp="${metaDirScp}${f800Base}"
 f810RemoteBackupScp="${metaDirScp}${f810Base}"
+f815RemoteBackupScp="${metaDirScp}${f815Base}"
 f820RemoteBackupScp="${metaDirScp}${f820Base}"
 f830RemoteBackupScp="${metaDirScp}${f830Base}"
 f840RemoteBackupScp="${metaDirScp}${f840Base}"
@@ -2666,6 +2678,7 @@ ${TRIPLET}${FSTAB}no652Hdr${FSTAB}${no652Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}no653Hdr${FSTAB}${no653Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR800Hdr${FSTAB}${noR800Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR810Hdr${FSTAB}${noR810Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}noR815Hdr${FSTAB}${noR815Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR820Hdr${FSTAB}${noR820Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR830Hdr${FSTAB}${noR830Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR840Hdr${FSTAB}${noR840Hdr}${FSTAB}${TRIPLET}
@@ -2995,7 +3008,7 @@ if [ ${remoteSource} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
+  scp ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
 
   progress_scp_meta '>'
 
@@ -3005,7 +3018,7 @@ elif [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpMetaOpt} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
+  scp ${scpMetaOpt} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
 
   progress_scp_meta '>'
 
@@ -3123,7 +3136,7 @@ if [ '' != "${copyFromRemoteSource}" ]; then
 
   progress_scp_meta '<'
 
-  scp -p ${scpMetaOpt} "${sourceUserHost}:${copyFromRemoteSource}" "${metaDirLocal}"
+  scp ${scpMetaOpt} "${sourceUserHost}:${copyFromRemoteSource}" "${metaDirLocal}"
 
   progress_scp_meta '<'
 
@@ -3131,7 +3144,7 @@ elif [ '' != "${copyFromRemoteBackup}" ]; then
 
   progress_scp_meta '<'
 
-  scp -p ${scpMetaOpt} "${backupUserHost}:${copyFromRemoteBackup}" "${metaDirLocal}"
+  scp ${scpMetaOpt} "${backupUserHost}:${copyFromRemoteBackup}" "${metaDirLocal}"
 
   progress_scp_meta '<'
 
@@ -4248,7 +4261,8 @@ BEGIN {
       print "backupDir='" backupDir "'" > f622
     }
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpExecOpt "'" > f622
+      print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f622
+      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f623
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f622
@@ -4299,8 +4313,10 @@ function apply_attr_dir() {
 function copy_file() {
   if ( 1 == remoteSource ) {
     print "${SCP" pin "} " sScp " " b > f622
+    print "${STOUCH" pin "} @" $5 " " b > f623
   } else if ( 1 == remoteBackup ) {
     print "${SCP" pin "} " s " " bScp > f622
+    print "${STOUCH" pin "} @" $5 " " b > f623
   } else {
     print "${CP" pin "} " s " " b > f622
     if ( 1 == extraTouch ) {
@@ -4481,7 +4497,8 @@ BEGIN {
       print "backupDir='" backupDir "'" > f632
     }
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpExecOpt "'" > f632
+      print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f632
+      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f633
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f632
@@ -4538,8 +4555,10 @@ function rev_check_nonex() {
 function rev_copy_file() {
   if ( 1 == remoteSource ) {
     print "${SCP" pin "} " b " " sScp > f632
+    print "${STOUCH" pin "} @" $5 " " s > f633
   } else if ( 1 == remoteBackup ) {
     print "${SCP" pin "} " bScp " " s > f632
+    print "${STOUCH" pin "} @" $5 " " s > f633
   } else {
     print "${CP" pin "} " b " " s > f632
     if ( 1 == extraTouch ) {
@@ -4768,6 +4787,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
   gsub( TRIPLETBREGEX, BSLASH, f800 )
   gsub( TRIPLETBREGEX, BSLASH, f810 )
+  gsub( TRIPLETBREGEX, BSLASH, f815 )
   gsub( TRIPLETBREGEX, BSLASH, f820 )
   gsub( TRIPLETBREGEX, BSLASH, f830 )
   gsub( TRIPLETBREGEX, BSLASH, f840 )
@@ -4801,12 +4821,23 @@ BEGIN {
       print "restoreDir='" restoreDir "'" > f810
     }
     if (( 1 == remoteBackup ) || ( 1 == remoteRestore )) {
-      print "SCP" ONE_TO_MAXPARALLEL "='scp -p " scpExecOpt "'" > f810
+      print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f810
     } else {
       print "CP" ONE_TO_MAXPARALLEL "='cp'" > f810
-      print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f810
     }
     print "set -u" > f810
+  }
+  if ( 0 == noR815Hdr ) {
+    BIN_BASH > f815
+    if (( 1 == remoteBackup ) || ( 1 == remoteRestore )) {
+      print "restoreDir='" restoreDir "'" > f815
+      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f815
+    } else {
+      print "backupDir='" backupDir "'" > f815
+      print "restoreDir='" restoreDir "'" > f815
+      print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f815
+    }
+    print "set -u" > f815
   }
   if ( 0 == noR820Hdr ) {
     BIN_BASH > f820
@@ -4845,6 +4876,7 @@ BEGIN {
   }
   SECTION_LINE > f800
   SECTION_LINE > f810
+  SECTION_LINE > f815
   SECTION_LINE > f820
   SECTION_LINE > f830
   SECTION_LINE > f840
@@ -4887,11 +4919,13 @@ BEGIN {
     } else if ( "f" == $3 ) {
       if ( 1 == remoteBackup ) {
         print "${SCP" pin "} " bScp " " r > f810
+        print "${STOUCH" pin "} @" $5 " " r > f815
       } else if ( 1 == remoteRestore ) {
         print "${SCP" pin "} " b " " rScp > f810
+        print "${STOUCH" pin "} @" $5 " " r > f815
       } else {
         print "${CP" pin "} " b " " r > f810
-        print "${TOUCH" pin "} " b " " r > f810
+        print "${TOUCH" pin "} " b " " r > f815
       }
       print "${CHOWN" pin "} " u " " r > f840
       print "${CHGRP" pin "} " g " " r > f850
@@ -4916,6 +4950,7 @@ END {
   SECTION_LINE > f840
   SECTION_LINE > f830
   SECTION_LINE > f820
+  SECTION_LINE > f815
   SECTION_LINE > f810
   SECTION_LINE > f800
   close( f860 )
@@ -4923,6 +4958,7 @@ END {
   close( f840 )
   close( f830 )
   close( f820 )
+  close( f815 )
   close( f810 )
   close( f800 )
 }
@@ -4944,6 +4980,7 @@ if [ ${noRestore} -eq 0 ]; then
          -v scpExecOpt="${scpExecOptAwk}"           \
          -v f800="${f800Awk}"                       \
          -v f810="${f810Awk}"                       \
+         -v f815="${f815Awk}"                       \
          -v f820="${f820Awk}"                       \
          -v f830="${f830Awk}"                       \
          -v f840="${f840Awk}"                       \
@@ -4951,6 +4988,7 @@ if [ ${noRestore} -eq 0 ]; then
          -v f860="${f860Awk}"                       \
          -v noR800Hdr=${noR800Hdr}                  \
          -v noR810Hdr=${noR810Hdr}                  \
+         -v noR815Hdr=${noR815Hdr}                  \
          -v noR820Hdr=${noR820Hdr}                  \
          -v noR830Hdr=${noR830Hdr}                  \
          -v noR840Hdr=${noR840Hdr}                  \
@@ -4960,14 +4998,14 @@ if [ ${noRestore} -eq 0 ]; then
 
   stop_progress
 
-  copyToRemoteBackup+=( "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}" )
+  copyToRemoteBackup+=( "${f800}" "${f810}" "${f815}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}" )
 
 else
 
-  files_not_prepared "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}"
+  files_not_prepared "${f800}" "${f810}" "${f815}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}"
 
-  removeFromRemoteBackup+="${f800RemoteBackupScp} ${f810RemoteBackupScp} ${f820RemoteBackupScp} ${f830RemoteBackupScp} "
-  removeFromRemoteBackup+="${f840RemoteBackupScp} ${f850RemoteBackupScp} ${f860RemoteBackupScp} "
+  removeFromRemoteBackup+="${f800RemoteBackupScp} ${f810RemoteBackupScp} ${f815RemoteBackupScp} ${f820RemoteBackupScp} "
+  removeFromRemoteBackup+="${f830RemoteBackupScp} ${f840RemoteBackupScp} ${f850RemoteBackupScp} ${f860RemoteBackupScp} "
 
 fi
 
@@ -4979,7 +5017,7 @@ if [ ${remoteSource} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
+  scp ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
 
   ssh ${sshOptions} "${sourceUserHost}" "rm -f ${removeFromRemoteSource}"
 
@@ -4989,7 +5027,7 @@ elif [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  scp -p ${scpMetaOpt} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
+  scp ${scpMetaOpt} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
 
   ssh ${sshOptions} "${backupUserHost}" "rm -f ${removeFromRemoteBackup}"
 

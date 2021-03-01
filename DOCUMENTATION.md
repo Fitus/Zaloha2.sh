@@ -375,6 +375,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v scpExecOpt="&lt;scpExecOpt&gt;"            \
       -v f800="&lt;script 800 to be created&gt;"    \
       -v f810="&lt;script 810 to be created&gt;"    \
+      -v f815="&lt;script 815 to be created&gt;"    \
       -v f820="&lt;script 820 to be created&gt;"    \
       -v f830="&lt;script 830 to be created&gt;"    \
       -v f840="&lt;script 840 to be created&gt;"    \
@@ -382,6 +383,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v f860="&lt;script 860 to be created&gt;"    \
       -v noR800Hdr=&lt;0 or 1&gt;                   \
       -v noR810Hdr=&lt;0 or 1&gt;                   \
+      -v noR815Hdr=&lt;0 or 1&gt;                   \
       -v noR820Hdr=&lt;0 or 1&gt;                   \
       -v noR830Hdr=&lt;0 or 1&gt;                   \
       -v noR840Hdr=&lt;0 or 1&gt;                   \
@@ -531,12 +533,6 @@ to backslashes inside.
 <b>--pRevGroup</b>         (permission bits) during <b>REV.MKDI</b>, <b>REV.NEW</b> and <b>REV.UP</b>
 <b>--pRevMode</b>          actions
 
-                    Caution: In the Remote Source and Remote Backup Modes,
-                    modes (permission bits) are preserved during copying even
-                    without the <b>--pMode</b> and <b>--pRevMode</b> options. This is
-                    because "scp -p" preserves both the timestamps (which is
-                    desired) as well as the modes (which is unfortunate).
-
 <b>--followSLinksS</b> ... follow symbolic links on &lt;sourceDir&gt;
 <b>--followSLinksB</b> ... follow symbolic links on &lt;backupDir&gt;
                     Please see section Following Symbolic Links for details.
@@ -637,6 +633,7 @@ to backslashes inside.
 
 <b>--noR800Hdr</b>     ... do not write header to the restore script 800
 <b>--noR810Hdr</b>     ... do not write header to the restore script 810
+<b>--noR815Hdr</b>     ... do not write header to the restore script 815
 <b>--noR820Hdr</b>     ... do not write header to the restore script 820
 <b>--noR830Hdr</b>     ... do not write header to the restore script 830
 <b>--noR840Hdr</b>     ... do not write header to the restore script 840
@@ -1350,6 +1347,8 @@ The combined primary key in file 505 is obvious e.g. in the case of other object
 in &lt;sourceDir&gt; and other object in &lt;backupDir&gt;: File 505 then contains an
 <b>OK</b> record for the former and a <b>KEEP</b> record for the latter, both with the
 same file's path (column 14).
+
+  Data model as HTML table: <a href="https://fitus.github.io/data_model.html">https://fitus.github.io/data_model.html</a>
 </pre>
 
 
@@ -1588,10 +1587,15 @@ that would themselves contain spaces or metacharacters that would undergo
 additional shell expansions, also Zaloha does not contain any sophisticated
 handling of &lt;sshOptions&gt; and &lt;scpOptions&gt;.
 
-Zaloha always invokes the SCP command with the "-p" option (this is hardcoded).
-This option instructs SCP to preserve timestamps during copying, but modes
-(permission bits) are preserved too, which is an (unavoidable and unfortunate)
-side effect.
+The option <b>--scpExecOpt</b> can be used to override &lt;scpOptions&gt; specially for
+the SCP commands used during the execution phase. If the option <b>--scpExecOpt</b>
+is not given, &lt;scpOptions&gt; applies to all SCP commands (= to those used in the
+analysis phase as well as to those used in the execution phase).
+
+Zaloha does not use the "-p" option of scp to preserve times of files, because
+this option has a side effect (that is not always wanted) of preserving the
+modes too. Explicit TOUCH commands in the post-copy scripts are used instead.
+They preserve the modification times (only).
 
 Eventual "at" signs (@) and colons (:) contained in directory names should not
 cause misinterpretations as users and hosts by SCP, because Zaloha prepends
@@ -1632,6 +1636,13 @@ The <b>--sha256</b> option has been developed for the Remote Modes, where the fi
 to be compared reside on different hosts: The SHA-256 hashes are calculated
 on the respective hosts and for the comparisons of file contents, just the
 hashes are transferred over the network, not the files themselves.
+
+The <b>--sha256</b> option is not limited to the Remote Modes - it can be used in
+the Local Mode too. Having CSV metadata that contains the SHA-256 hashes may
+be useful for other purposes as well, e.g. for de-duplication of files by
+content in the source directory: by sorting the CSV file 330 by the SHA-256
+hashes (column 13) one obtains a CSV file where the files with identical
+contents are located in adjacent records.
 </pre>
 
 
@@ -1760,11 +1771,6 @@ and he will have access to this program ...
 Mitigation with Zaloha: Prevent this scenario. Be specially careful with options
                         <b>--pMode</b> and <b>--pRevMode</b> and with the restore script
                         860_restore_mode.sh
-
-Caution: In the Remote Source and Remote Backup Modes, modes (permission bits)
-are preserved during copying even without the <b>--pMode</b> and <b>--pRevMode</b>
-options. This is because "scp -p" preserves both the timestamps (which is
-desired) as well as the modes (which is unfortunate).
 
 Attack on Zaloha metadata
 -------------------------
