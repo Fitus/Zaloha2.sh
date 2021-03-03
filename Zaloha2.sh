@@ -380,7 +380,7 @@ option.
 Shellscripts for case of restore
 --------------------------------
 Zaloha prepares shellscripts for the case of restore in its Metadata directory
-(scripts 800 through 860). Each type of operation is contained in a separate
+(scripts 800 through 870). Each type of operation is contained in a separate
 shellscript, to give maximum freedom (= for each script, decide whether to apply
 or to not apply). Further, each shellscript has a header part where
 key variables for whole script are defined (and can be adjusted as needed).
@@ -402,20 +402,20 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v scpExecOpt="<scpExecOpt>"            \
       -v f800="<script 800 to be created>"    \
       -v f810="<script 810 to be created>"    \
-      -v f815="<script 815 to be created>"    \
       -v f820="<script 820 to be created>"    \
       -v f830="<script 830 to be created>"    \
       -v f840="<script 840 to be created>"    \
       -v f850="<script 850 to be created>"    \
       -v f860="<script 860 to be created>"    \
+      -v f870="<script 870 to be created>"    \
       -v noR800Hdr=<0 or 1>                   \
       -v noR810Hdr=<0 or 1>                   \
-      -v noR815Hdr=<0 or 1>                   \
       -v noR820Hdr=<0 or 1>                   \
       -v noR830Hdr=<0 or 1>                   \
       -v noR840Hdr=<0 or 1>                   \
       -v noR850Hdr=<0 or 1>                   \
       -v noR860Hdr=<0 or 1>                   \
+      -v noR870Hdr=<0 or 1>                   \
       "<CSV metadata file 505>"
 
 Note 1: All filenames/paths should begin with a "/" (if absolute) or with a "./"
@@ -659,12 +659,12 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 
 --noR800Hdr     ... do not write header to the restore script 800
 --noR810Hdr     ... do not write header to the restore script 810
---noR815Hdr     ... do not write header to the restore script 815
 --noR820Hdr     ... do not write header to the restore script 820
 --noR830Hdr     ... do not write header to the restore script 830
 --noR840Hdr     ... do not write header to the restore script 840
 --noR850Hdr     ... do not write header to the restore script 850
 --noR860Hdr     ... do not write header to the restore script 860
+--noR870Hdr     ... do not write header to the restore script 870
    (Explained in the Advanced Use of Zaloha section below).
 
 --noProgress    ... suppress progress messages during the analysis phase (less
@@ -1871,12 +1871,12 @@ f700Base='700_restore.awk'           # AWK program for preparation of shellscrip
 
 f800Base='800_restore_dirs.sh'       # for the case of restore: shellscript to restore directories
 f810Base='810_restore_files.sh'      # for the case of restore: shellscript to restore files
-f815Base='815_restore_times.sh'      # for the case of restore: shellscript to restore times of files
 f820Base='820_restore_sym_links.sh'  # for the case of restore: shellscript to restore symbolic links
 f830Base='830_restore_hardlinks.sh'  # for the case of restore: shellscript to restore hardlinks
 f840Base='840_restore_user_own.sh'   # for the case of restore: shellscript to restore user ownerships
 f850Base='850_restore_group_own.sh'  # for the case of restore: shellscript to restore group ownerships
 f860Base='860_restore_mode.sh'       # for the case of restore: shellscript to restore modes (permission bits)
+f870Base='870_restore_times.sh'      # for the case of restore: shellscript to restore times
 
 f999Base='999_mark_executed'         # empty touchfile marking execution of actions
 
@@ -2069,12 +2069,12 @@ no652Hdr=0
 no653Hdr=0
 noR800Hdr=0
 noR810Hdr=0
-noR815Hdr=0
 noR820Hdr=0
 noR830Hdr=0
 noR840Hdr=0
 noR850Hdr=0
 noR860Hdr=0
+noR870Hdr=0
 noProgress=0
 color=0
 mawk=0
@@ -2136,12 +2136,12 @@ do
     --no653Hdr)          opt_dupli_check ${no653Hdr} "${tmpVal}";       no653Hdr=1 ;;
     --noR800Hdr)         opt_dupli_check ${noR800Hdr} "${tmpVal}";      noR800Hdr=1 ;;
     --noR810Hdr)         opt_dupli_check ${noR810Hdr} "${tmpVal}";      noR810Hdr=1 ;;
-    --noR815Hdr)         opt_dupli_check ${noR815Hdr} "${tmpVal}";      noR815Hdr=1 ;;
     --noR820Hdr)         opt_dupli_check ${noR820Hdr} "${tmpVal}";      noR820Hdr=1 ;;
     --noR830Hdr)         opt_dupli_check ${noR830Hdr} "${tmpVal}";      noR830Hdr=1 ;;
     --noR840Hdr)         opt_dupli_check ${noR840Hdr} "${tmpVal}";      noR840Hdr=1 ;;
     --noR850Hdr)         opt_dupli_check ${noR850Hdr} "${tmpVal}";      noR850Hdr=1 ;;
     --noR860Hdr)         opt_dupli_check ${noR860Hdr} "${tmpVal}";      noR860Hdr=1 ;;
+    --noR870Hdr)         opt_dupli_check ${noR870Hdr} "${tmpVal}";      noR870Hdr=1 ;;
     --noProgress)        opt_dupli_check ${noProgress} "${tmpVal}";     noProgress=1 ;;
     --color)             opt_dupli_check ${color} "${tmpVal}";          color=1 ;;
     --mawk)              opt_dupli_check ${mawk} "${tmpVal}";           mawk=1 ;;
@@ -2507,12 +2507,12 @@ f690="${metaDirLocal}${f690Base}"
 f700="${metaDirLocal}${f700Base}"
 f800="${metaDirLocal}${f800Base}"
 f810="${metaDirLocal}${f810Base}"
-f815="${metaDirLocal}${f815Base}"
 f820="${metaDirLocal}${f820Base}"
 f830="${metaDirLocal}${f830Base}"
 f840="${metaDirLocal}${f840Base}"
 f850="${metaDirLocal}${f850Base}"
 f860="${metaDirLocal}${f860Base}"
+f870="${metaDirLocal}${f870Base}"
 f999="${metaDirLocal}${f999Base}"
 
 f510Awk="${metaDirLocalAwk}${f510Base}"
@@ -2531,12 +2531,12 @@ f652Awk="${metaDirLocalAwk}${f652Base}"
 f653Awk="${metaDirLocalAwk}${f653Base}"
 f800Awk="${metaDirLocalAwk}${f800Base}"
 f810Awk="${metaDirLocalAwk}${f810Base}"
-f815Awk="${metaDirLocalAwk}${f815Base}"
 f820Awk="${metaDirLocalAwk}${f820Base}"
 f830Awk="${metaDirLocalAwk}${f830Base}"
 f840Awk="${metaDirLocalAwk}${f840Base}"
 f850Awk="${metaDirLocalAwk}${f850Base}"
 f860Awk="${metaDirLocalAwk}${f860Base}"
+f870Awk="${metaDirLocalAwk}${f870Base}"
 
 # FILES IN TEMPORARY METADATA DIRECTORY OF ZALOHA ON REMOTE SOURCE HOST (IN REMOTE SOURCE MODE)
 if [ ${remoteSource} -eq 1 ]; then
@@ -2576,12 +2576,12 @@ f690RemoteBackupScp="${metaDirScp}${f690Base}"
 f700RemoteBackupScp="${metaDirScp}${f700Base}"
 f800RemoteBackupScp="${metaDirScp}${f800Base}"
 f810RemoteBackupScp="${metaDirScp}${f810Base}"
-f815RemoteBackupScp="${metaDirScp}${f815Base}"
 f820RemoteBackupScp="${metaDirScp}${f820Base}"
 f830RemoteBackupScp="${metaDirScp}${f830Base}"
 f840RemoteBackupScp="${metaDirScp}${f840Base}"
 f850RemoteBackupScp="${metaDirScp}${f850Base}"
 f860RemoteBackupScp="${metaDirScp}${f860Base}"
+f870RemoteBackupScp="${metaDirScp}${f870Base}"
 f999RemoteBackupScp="${metaDirScp}${f999Base}"
 
 unset copyToRemoteBackup
@@ -2678,12 +2678,12 @@ ${TRIPLET}${FSTAB}no652Hdr${FSTAB}${no652Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}no653Hdr${FSTAB}${no653Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR800Hdr${FSTAB}${noR800Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR810Hdr${FSTAB}${noR810Hdr}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}noR815Hdr${FSTAB}${noR815Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR820Hdr${FSTAB}${noR820Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR830Hdr${FSTAB}${noR830Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR840Hdr${FSTAB}${noR840Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR850Hdr${FSTAB}${noR850Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR860Hdr${FSTAB}${noR860Hdr}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}noR870Hdr${FSTAB}${noR870Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noProgress${FSTAB}${noProgress}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}color${FSTAB}${color}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}mawk${FSTAB}${mawk}${FSTAB}${TRIPLET}
@@ -4787,12 +4787,12 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
   gsub( TRIPLETBREGEX, BSLASH, f800 )
   gsub( TRIPLETBREGEX, BSLASH, f810 )
-  gsub( TRIPLETBREGEX, BSLASH, f815 )
   gsub( TRIPLETBREGEX, BSLASH, f820 )
   gsub( TRIPLETBREGEX, BSLASH, f830 )
   gsub( TRIPLETBREGEX, BSLASH, f840 )
   gsub( TRIPLETBREGEX, BSLASH, f850 )
   gsub( TRIPLETBREGEX, BSLASH, f860 )
+  gsub( TRIPLETBREGEX, BSLASH, f870 )
   backupDirScp = backupDir
   restoreDirScp = restoreDir
   gsub( QUOTEREGEX, QUOTEESC, backupDir )
@@ -4826,18 +4826,6 @@ BEGIN {
       print "CP" ONE_TO_MAXPARALLEL "='cp'" > f810
     }
     print "set -u" > f810
-  }
-  if ( 0 == noR815Hdr ) {
-    BIN_BASH > f815
-    if (( 1 == remoteBackup ) || ( 1 == remoteRestore )) {
-      print "restoreDir='" restoreDir "'" > f815
-      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f815
-    } else {
-      print "backupDir='" backupDir "'" > f815
-      print "restoreDir='" restoreDir "'" > f815
-      print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f815
-    }
-    print "set -u" > f815
   }
   if ( 0 == noR820Hdr ) {
     BIN_BASH > f820
@@ -4874,14 +4862,26 @@ BEGIN {
     print "CHMOD" ONE_TO_MAXPARALLEL "='chmod'" > f860
     print "set -u" > f860
   }
+  if ( 0 == noR870Hdr ) {
+    BIN_BASH > f870
+    if (( 1 == remoteBackup ) || ( 1 == remoteRestore )) {
+      print "restoreDir='" restoreDir "'" > f870
+      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f870
+    } else {
+      print "backupDir='" backupDir "'" > f870
+      print "restoreDir='" restoreDir "'" > f870
+      print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f870
+    }
+    print "set -u" > f870
+  }
   SECTION_LINE > f800
   SECTION_LINE > f810
-  SECTION_LINE > f815
   SECTION_LINE > f820
   SECTION_LINE > f830
   SECTION_LINE > f840
   SECTION_LINE > f850
   SECTION_LINE > f860
+  SECTION_LINE > f870
 }
 {
   if ( $2 !~ /^KEEP/ ) {
@@ -4919,13 +4919,13 @@ BEGIN {
     } else if ( "f" == $3 ) {
       if ( 1 == remoteBackup ) {
         print "${SCP" pin "} " bScp " " r > f810
-        print "${STOUCH" pin "} @" $5 " " r > f815
+        print "${STOUCH" pin "} @" $5 " " r > f870
       } else if ( 1 == remoteRestore ) {
         print "${SCP" pin "} " b " " rScp > f810
-        print "${STOUCH" pin "} @" $5 " " r > f815
+        print "${STOUCH" pin "} @" $5 " " r > f870
       } else {
         print "${CP" pin "} " b " " r > f810
-        print "${TOUCH" pin "} " b " " r > f815
+        print "${TOUCH" pin "} " b " " r > f870
       }
       print "${CHOWN" pin "} " u " " r > f840
       print "${CHGRP" pin "} " g " " r > f850
@@ -4945,20 +4945,20 @@ BEGIN {
   }
 }
 END {
+  SECTION_LINE > f870
   SECTION_LINE > f860
   SECTION_LINE > f850
   SECTION_LINE > f840
   SECTION_LINE > f830
   SECTION_LINE > f820
-  SECTION_LINE > f815
   SECTION_LINE > f810
   SECTION_LINE > f800
+  close( f870 )
   close( f860 )
   close( f850 )
   close( f840 )
   close( f830 )
   close( f820 )
-  close( f815 )
   close( f810 )
   close( f800 )
 }
@@ -4980,32 +4980,32 @@ if [ ${noRestore} -eq 0 ]; then
          -v scpExecOpt="${scpExecOptAwk}"           \
          -v f800="${f800Awk}"                       \
          -v f810="${f810Awk}"                       \
-         -v f815="${f815Awk}"                       \
          -v f820="${f820Awk}"                       \
          -v f830="${f830Awk}"                       \
          -v f840="${f840Awk}"                       \
          -v f850="${f850Awk}"                       \
          -v f860="${f860Awk}"                       \
+         -v f870="${f870Awk}"                       \
          -v noR800Hdr=${noR800Hdr}                  \
          -v noR810Hdr=${noR810Hdr}                  \
-         -v noR815Hdr=${noR815Hdr}                  \
          -v noR820Hdr=${noR820Hdr}                  \
          -v noR830Hdr=${noR830Hdr}                  \
          -v noR840Hdr=${noR840Hdr}                  \
          -v noR850Hdr=${noR850Hdr}                  \
          -v noR860Hdr=${noR860Hdr}                  \
+         -v noR870Hdr=${noR870Hdr}                  \
          "${f505}"
 
   stop_progress
 
-  copyToRemoteBackup+=( "${f800}" "${f810}" "${f815}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}" )
+  copyToRemoteBackup+=( "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}" "${f870}" )
 
 else
 
-  files_not_prepared "${f800}" "${f810}" "${f815}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}"
+  files_not_prepared "${f800}" "${f810}" "${f820}" "${f830}" "${f840}" "${f850}" "${f860}" "${f870}"
 
-  removeFromRemoteBackup+="${f800RemoteBackupScp} ${f810RemoteBackupScp} ${f815RemoteBackupScp} ${f820RemoteBackupScp} "
-  removeFromRemoteBackup+="${f830RemoteBackupScp} ${f840RemoteBackupScp} ${f850RemoteBackupScp} ${f860RemoteBackupScp} "
+  removeFromRemoteBackup+="${f800RemoteBackupScp} ${f810RemoteBackupScp} ${f820RemoteBackupScp} ${f830RemoteBackupScp} "
+  removeFromRemoteBackup+="${f840RemoteBackupScp} ${f850RemoteBackupScp} ${f860RemoteBackupScp} ${f870RemoteBackupScp} "
 
 fi
 

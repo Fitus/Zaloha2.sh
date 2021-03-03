@@ -351,7 +351,7 @@ Shellscript **630** | Split to **631** (pre-copy), **632** (copy), **633** (post
 Shellscript **640** | In Remote Backup Mode: executed on the remote side
 Shellscript **650** | Split to **651** (pre-copy), **652** (copy), **653** (post-copy). In Remote Backup Mode: **651** and **653** are executed on the remote side. In both remote modes, **652** contains SCP commands instead of CP commands.
 Restore script **810** | In the remote modes: contains SCP commands instead of CP commands
-Restore script **815** | Commands to preserve times of files have been moved from script **810** to script **815**
+Restore script **870** | Commands to preserve times of files have been moved from script **810** to script **870**
 &nbsp; | New option **--sha256** for comparing the contents of files via SHA-256 hashes
 CSV data model of **16&nbsp;columns** | Extended to **17&nbsp;columns** to accommodate the SHA-256 hashes in new separate column 13 (original columns 13+14+15+16 shifted to 14+15+16+17)
 &nbsp; | New check for falsely detected hardlinks: SHA-256 hash differs

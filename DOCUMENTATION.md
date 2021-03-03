@@ -353,7 +353,7 @@ option.
 Shellscripts for case of restore
 --------------------------------
 Zaloha prepares shellscripts for the case of restore in its Metadata directory
-(scripts 800 through 860). Each type of operation is contained in a separate
+(scripts 800 through 870). Each type of operation is contained in a separate
 shellscript, to give maximum freedom (= for each script, decide whether to apply
 or to not apply). Further, each shellscript has a header part where
 key variables for whole script are defined (and can be adjusted as needed).
@@ -375,20 +375,20 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v scpExecOpt="&lt;scpExecOpt&gt;"            \
       -v f800="&lt;script 800 to be created&gt;"    \
       -v f810="&lt;script 810 to be created&gt;"    \
-      -v f815="&lt;script 815 to be created&gt;"    \
       -v f820="&lt;script 820 to be created&gt;"    \
       -v f830="&lt;script 830 to be created&gt;"    \
       -v f840="&lt;script 840 to be created&gt;"    \
       -v f850="&lt;script 850 to be created&gt;"    \
       -v f860="&lt;script 860 to be created&gt;"    \
+      -v f870="&lt;script 870 to be created&gt;"    \
       -v noR800Hdr=&lt;0 or 1&gt;                   \
       -v noR810Hdr=&lt;0 or 1&gt;                   \
-      -v noR815Hdr=&lt;0 or 1&gt;                   \
       -v noR820Hdr=&lt;0 or 1&gt;                   \
       -v noR830Hdr=&lt;0 or 1&gt;                   \
       -v noR840Hdr=&lt;0 or 1&gt;                   \
       -v noR850Hdr=&lt;0 or 1&gt;                   \
       -v noR860Hdr=&lt;0 or 1&gt;                   \
+      -v noR870Hdr=&lt;0 or 1&gt;                   \
       "&lt;CSV metadata file 505&gt;"
 
 Note 1: All filenames/paths should begin with a "/" (if absolute) or with a "./"
@@ -633,12 +633,12 @@ to backslashes inside.
 
 <b>--noR800Hdr</b>     ... do not write header to the restore script 800
 <b>--noR810Hdr</b>     ... do not write header to the restore script 810
-<b>--noR815Hdr</b>     ... do not write header to the restore script 815
 <b>--noR820Hdr</b>     ... do not write header to the restore script 820
 <b>--noR830Hdr</b>     ... do not write header to the restore script 830
 <b>--noR840Hdr</b>     ... do not write header to the restore script 840
 <b>--noR850Hdr</b>     ... do not write header to the restore script 850
 <b>--noR860Hdr</b>     ... do not write header to the restore script 860
+<b>--noR870Hdr</b>     ... do not write header to the restore script 870
    (Explained in the Advanced Use of Zaloha section below).
 
 <b>--noProgress</b>    ... suppress progress messages during the analysis phase (less
