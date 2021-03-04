@@ -545,9 +545,15 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --noUnlink      ... never unlink multiply linked files in <backupDir> before
                     writing to them
 
---extraTouch    ... use cp + touch instead of cp --preserve=timestamps
+--extraTouch    ... use cp + touch -m instead of cp --preserve=timestamps
                     (special case [SCC_OTHER_01] explained in Special Cases
-                    section below)
+                    section below). This has also a subtle impact on access
+                    times (atime): cp --preserve=timestamps obtains mtime and
+                    atime from the source file (before it reads it and changes
+                    its atime) and applies the obtained mtime and atime to the
+                    target file. On the contrary, cp keeps atime of the target
+                    file intact and touch -m just sets the correct mtime on the
+                    target file.
 
 --pUser         ... preserve user ownerships, group ownerships and/or modes
 --pGroup            (permission bits) during MKDIR, NEW, UPDATE and unl.UP
@@ -1876,7 +1882,7 @@ f830Base='830_restore_hardlinks.sh'  # for the case of restore: shellscript to r
 f840Base='840_restore_user_own.sh'   # for the case of restore: shellscript to restore user ownerships
 f850Base='850_restore_group_own.sh'  # for the case of restore: shellscript to restore group ownerships
 f860Base='860_restore_mode.sh'       # for the case of restore: shellscript to restore modes (permission bits)
-f870Base='870_restore_times.sh'      # for the case of restore: shellscript to restore times
+f870Base='870_restore_mtime.sh'      # for the case of restore: shellscript to restore modification times
 
 f999Base='999_mark_executed'         # empty touchfile marking execution of actions
 
@@ -4266,7 +4272,7 @@ BEGIN {
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f622
-        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f622
+        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -m -r'" > f622
       } else {
         print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'" > f622
       }
@@ -4502,7 +4508,7 @@ BEGIN {
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f632
-        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f632
+        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -m -r'" > f632
       } else {
         print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'" > f632
       }
@@ -4754,7 +4760,7 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, metaDir )
   BIN_BASH
   print "metaDir='" metaDir "'"
-  print "TOUCH='touch -r'"
+  print "TOUCH='touch -m -r'"
   print "set -u"
   SECTION_LINE
   print "${TOUCH} \"${metaDir}\"" f000Base \
@@ -4870,7 +4876,7 @@ BEGIN {
     } else {
       print "backupDir='" backupDir "'" > f870
       print "restoreDir='" restoreDir "'" > f870
-      print "TOUCH" ONE_TO_MAXPARALLEL "='touch -r'" > f870
+      print "TOUCH" ONE_TO_MAXPARALLEL "='touch -m -r'" > f870
     }
     print "set -u" > f870
   }
