@@ -519,9 +519,15 @@ to backslashes inside.
 <b>--noUnlink</b>      ... never unlink multiply linked files in &lt;backupDir&gt; before
                     writing to them
 
-<b>--extraTouch</b>    ... use cp + touch instead of cp --preserve=timestamps
+<b>--extraTouch</b>    ... use cp + touch -m instead of cp --preserve=timestamps
                     (special case [SCC_OTHER_01] explained in Special Cases
-                    section below)
+                    section below). This has also a subtle impact on access
+                    times (atime): cp --preserve=timestamps obtains mtime and
+                    atime from the source file (before it reads it and changes
+                    its atime) and applies the obtained mtime and atime to the
+                    target file. On the contrary, cp keeps atime of the target
+                    file intact and touch -m just sets the correct mtime on the
+                    target file.
 
 <b>--pUser</b>         ... preserve user ownerships, group ownerships and/or modes
 <b>--pGroup</b>            (permission bits) during <b>MKDIR</b>, <b>NEW</b>, <b>UPDATE</b> and <b>unl.UP</b>
