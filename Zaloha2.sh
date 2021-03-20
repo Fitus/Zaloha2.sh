@@ -3872,9 +3872,11 @@ END {
   }
   if (( 0 == noWarnSLinks ) && ( 0 != slc )) {
     if ( 1 == followSLinksS ) {
-      warning( slc " broken symbolic link(s) in <sourceDir>" )
+      warning( slc " broken symbolic link(s) in <sourceDir> that are not synchronized to <backupDir>:" \
+                   " they are saved in the CSV metadata and in the restore script 820" )
     } else {
-      warning( slc " symbolic link(s) in <sourceDir> that are neither followed nor synchronized to <backupDir>" )
+      warning( slc " symbolic link(s) in <sourceDir> that are neither followed nor synchronized to <backupDir>:" \
+                   " they are saved in the CSV metadata and in the restore script 820" )
     }
   }
   if ( 0 != idc ) {
@@ -5049,6 +5051,26 @@ if [ ${noExec} -eq 1 ]; then
   exit 0
 fi
 
+lastReply='Y'
+
+function ask_user {
+  echo "${1}"
+  if [ 'Y' == "${lastReply}" ]; then
+    read -p '[Y/y=Yes, S/s=do nothing and show further, other=do nothing and abort]: ' tmpVal
+    tmpVal="${tmpVal/y/Y}"
+    tmpVal="${tmpVal/s/S}"
+    lastReply="${tmpVal}"
+    tmpVal="${tmpVal/Y/S}"
+  else
+    read -p '[S/s=do nothing and show further, other/Y/y=do nothing and abort]: ' tmpVal
+    tmpVal="${tmpVal/s/S}"
+    lastReply="${tmpVal}"
+  fi
+  if [ 'S' != "${tmpVal}" ]; then
+    error_exit "User requested Zaloha to abort (file ${f999Base} was not touched)"
+  fi
+}
+
 exec 4>&1
 
 if [ -s "${f510}" ]; then
@@ -5063,16 +5085,14 @@ if [ -s "${f510}" ]; then
     echo 'WARNING: Unavoidable removals prepared regardless of the --noRemove option'
   fi
   echo
-  read -p "Execute above listed removals from ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-  if [ 'Y' == "${tmpVal/y/Y}" ]; then
+  ask_user "Execute above listed removals from ${backupUserHostDirTerm} ?"
+  if [ 'Y' == "${lastReply}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
       ssh ${sshOptions} "${backupUserHost}" "bash ${f610RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     else
       bash "${f610}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     fi
-  else
-    error_exit 'User requested Zaloha to abort'
   fi
 fi
 
@@ -5084,8 +5104,8 @@ ${awk} -f "${f104}" -v color=${color} "${f520}"
 
 if [ -s "${f520}" ]; then
   echo
-  read -p "Execute above listed copies to ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-  if [ 'Y' == "${tmpVal/y/Y}" ]; then
+  ask_user "Execute above listed copies to ${backupUserHostDirTerm} ?"
+  if [ 'Y' == "${lastReply}" ]; then
     echo
     if [ ${remoteBackup} -eq 1 ]; then
       ssh ${sshOptions} "${backupUserHost}" "bash ${f621RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -5096,8 +5116,6 @@ if [ -s "${f520}" ]; then
       3>&1 1>&4 bash "${f622}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       bash "${f623}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
     fi
-  else
-    error_exit 'User requested Zaloha to abort'
   fi
 fi
 
@@ -5110,8 +5128,8 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
   if [ -s "${f530}" ]; then
     echo
-    read -p "Execute above listed reverse-copies to ${sourceUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-    if [ 'Y' == "${tmpVal/y/Y}" ]; then
+    ask_user "Execute above listed reverse-copies to ${sourceUserHostDirTerm} ?"
+    if [ 'Y' == "${lastReply}" ]; then
       echo
       if [ ${remoteSource} -eq 1 ]; then
         ssh ${sshOptions} "${sourceUserHost}" "bash ${f631RemoteSourceScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -5122,8 +5140,6 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
         3>&1 1>&4 bash "${f632}" | ${awkNoBuf} -f "${f102}" -v color=${color}
         bash "${f633}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
-    else
-      error_exit 'User requested Zaloha to abort'
     fi
   fi
 fi
@@ -5137,16 +5153,14 @@ if [ ${noRemove} -eq 0 ]; then
 
   if [ -s "${f540}" ]; then
     echo
-    read -p "Execute above listed removals from ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-    if [ 'Y' == "${tmpVal/y/Y}" ]; then
+    ask_user "Execute above listed removals from ${backupUserHostDirTerm} ?"
+    if [ 'Y' == "${lastReply}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
         ssh ${sshOptions} "${backupUserHost}" "bash ${f640RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
         bash "${f640}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
-    else
-      error_exit 'User requested Zaloha to abort'
     fi
   fi
 fi
@@ -5160,8 +5174,8 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
 
   if [ -s "${f550}" ]; then
     echo
-    read -p "Execute above listed copies to ${backupUserHostDirTerm} ? [Y/y=Yes, other=do nothing and abort]: " tmpVal
-    if [ 'Y' == "${tmpVal/y/Y}" ]; then
+    ask_user "Execute above listed copies to ${backupUserHostDirTerm} ?"
+    if [ 'Y' == "${lastReply}" ]; then
       echo
       if [ ${remoteBackup} -eq 1 ]; then
         ssh ${sshOptions} "${backupUserHost}" "bash ${f651RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -5172,8 +5186,6 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
         3>&1 1>&4 bash "${f652}" | ${awkNoBuf} -f "${f102}" -v color=${color}
         bash "${f653}"           | ${awkNoBuf} -f "${f102}" -v color=${color}
       fi
-    else
-      error_exit 'User requested Zaloha to abort'
     fi
   fi
 fi
@@ -5182,10 +5194,15 @@ exec 4>&-
 
 # touch the file 999_mark_executed
 
-if [ ${remoteBackup} -eq 1 ]; then
-  ssh ${sshOptions} "${backupUserHost}" "bash ${f690RemoteBackupScp}"
+if [ 'Y' == "${lastReply}" ]; then
+  if [ ${remoteBackup} -eq 1 ]; then
+    ssh ${sshOptions} "${backupUserHost}" "bash ${f690RemoteBackupScp}"
+  else
+    bash "${f690}"
+  fi
 else
-  bash "${f690}"
+  echo
+  echo "WARNING: File ${f999Base} was not touched"
 fi
 
 ###########################################################
