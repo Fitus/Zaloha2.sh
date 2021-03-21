@@ -34,7 +34,8 @@ Zaloha is a small and simple directory synchronizer:
 
  * Zaloha is a BASH script that uses only FIND, SORT and AWK. All you need
    is THIS file. For documentation, also read THIS file.
- * Cyber-secure: No new binary code, no new open ports, easily reviewable.
+ * Cyber-secure: No new binary code, no new open ports, no interaction with
+   the Internet, easily reviewable.
  * Three operation modes are available: Local Mode, Remote Source Mode and
    Remote Backup Mode
  * Local Mode: Both <sourceDir> and <backupDir> are available locally
@@ -126,8 +127,9 @@ unl.UP.!  unlink file in <backupDir> + UPDATE.! (can be switched off via the
           "--noUnlink" option, see below)
 unl.UP.?  unlink file in <backupDir> + UPDATE.? (can be switched off via the
           "--noUnlink" option, see below)
-ATTR:ugm  update only attributes in <backupDir> (u=user ownership,
-          g=group ownership, m=mode) (optional feature, see below)
+ATTR:ugmT update only attributes in <backupDir> (u=user ownership,
+          g=group ownership, m=mode, T=modification time)
+          (optional features, see below)
 
 Exec3:  reverse-synchronization from <backupDir> to <sourceDir> (optional
         feature, can be activated via the "--revNew" and "--revUp" options)
@@ -539,8 +541,11 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     equal sizes and SHA-256 hashes. Calculation of the hashes
                     might dramatically slow down Zaloha. If additional updates
                     of files result from this comparison, they will be executed
-                    in step Exec5. This option is available in all three modes
-                    (Local, Remote Source and Remote Backup).
+                    in step Exec5. Moreover, if files have equal sizes and
+                    SHA-256 hashes but different modification times, copying of
+                    such files will be prevented and only the modification times
+                    will be aligned (ATTR:T). This option is available in all
+                    three modes (Local, Remote Source and Remote Backup).
 
 --noUnlink      ... never unlink multiply linked files in <backupDir> before
                     writing to them
@@ -1656,6 +1661,12 @@ If additional updates of files result from comparisons of SHA-256 hashes,
 they will be executed in step Exec5 (same principle as for the "--byteByByte"
 option).
 
+Additionally, Zaloha handles situations where the files have identical sizes
+and SHA-256 hashes, but different modification times: it then prevents copying
+of such files and only aligns their modification times (ATTR:T). This means:
+when Zaloha runs next time without the "--sha256" option, it will evaluate the
+files as synchronized based on equality of their sizes and modification times.
+
 The "--sha256" option has been developed for the Remote Modes, where the files
 to be compared reside on different hosts: The SHA-256 hashes are calculated
 on the respective hosts and for the comparisons of file contents, just the
@@ -1664,7 +1675,7 @@ hashes are transferred over the network, not the files themselves.
 The "--sha256" option is not limited to the Remote Modes - it can be used in
 the Local Mode too. Having CSV metadata that contains the SHA-256 hashes may
 be useful for other purposes as well, e.g. for de-duplication of files by
-content in the source directory: by sorting the CSV file 330 by the SHA-256
+content in the source directory: By sorting the CSV file 330 by the SHA-256
 hashes (column 13) one obtains a CSV file where the files with identical
 contents are located in adjacent records.
 
@@ -3686,16 +3697,15 @@ function rev_up_file() {
     print_prev_curr( "REV.UP" )
   }
 }
-function attributes_or_ok() {
-  atr = ""
-  if (( 1 == pUser ) && ( $10 != us )) {
-    atr = atr "u"
+function attributes_or_ok( atr ) {
+  if (( 1 == pMode ) && ( $12 != md )) {
+    atr = "m" atr
   }
   if (( 1 == pGroup ) && ( $11 != gr )) {
-    atr = atr "g"
+    atr = "g" atr
   }
-  if (( 1 == pMode ) && ( $12 != md )) {
-    atr = atr "m"
+  if (( 1 == pUser ) && ( $10 != us )) {
+    atr = "u" atr
   }
   if ( "" != atr ) {
     print_curr_prev( "ATTR:" atr )
@@ -3760,7 +3770,7 @@ function process_previous_record() {
         }
         if ( "d" == $3 ) {                     ## directory in <sourceDir>
           if ( "d" == tp ) {                   # directory in <sourceDir>, directory in <backupDir> (case 1)
-            attributes_or_ok()
+            attributes_or_ok( "" )
           } else {                             # directory in <sourceDir>, file, symbolic link or other object in <backupDir> (cases 2,3,4)
             remove( "u" )                      #  (unavoidable removal)
             print_current( "MKDIR" )
@@ -3772,6 +3782,7 @@ function process_previous_record() {
             print_current( "NEW" )
           } else if ( "f" == tp ) {            # file in <sourceDir>, file in <backupDir> (case 6)
             oka = 0
+            oks = 2
             if ( "M" $4 == "M" sz ) {
               if ( "M" $5 == "M" tm ) {
                 oka = 1
@@ -3791,29 +3802,38 @@ function process_previous_record() {
                   oka = 1
                 }
               }
+              if ( "M" $13 != "M" ha ) {
+                oks = 0
+              } else if ( "0" != $13 ) {
+                oks = 1
+              }
             } else {
               tdi = $5 - tm
               get_tolerance()
             }
             if ( 1 == oka ) {
-              if ( "M" $13 != "M" ha ) {       # size and time OK, but the SHA-256 hash differs
+              if ( 0 == oks ) {                # size and time OK, but the SHA-256 hash differs
                 if (( 0 == noUnlink ) && ( 1 != nh )) {
                   print_curr_prev( "unl.UP.b" )
                 } else {
                   print_curr_prev( "UPDATE.b" )
                 }
               } else {
-                attributes_or_ok()
+                attributes_or_ok( "" )
               }
             } else {
-              if ( 1 == revUp ) {
-                if ( tdi < - tof - tol ) {
-                  rev_up_file()
+              if ( 1 == oks ) {                # time not OK, but size and SHA-256 match
+                attributes_or_ok( "T" )
+              } else {
+                if ( 1 == revUp ) {
+                  if ( tdi < - tof - tol ) {
+                    rev_up_file()
+                  } else {
+                    update_file()
+                  }
                 } else {
                   update_file()
                 }
-              } else {
-                update_file()
               }
             }
           } else {                             # file in <sourceDir>, symbolic link or other object in <backupDir> (cases 7,8)
@@ -4274,10 +4294,10 @@ BEGIN {
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f622
-        print "TOUCH" ONE_TO_MAXPARALLEL "='touch -m -r'" > f622
       } else {
         print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'" > f622
       }
+      print "TOUCH" ONE_TO_MAXPARALLEL "='touch -m -r'" > f622
     }
     print "set -u" > f622
     if ( 0 == noExec ) {
@@ -4394,6 +4414,13 @@ function next_pin() {
     }
     if ( $2 ~ /m/ ) {
       print "${CHMOD" pin "} " m " " b > f623
+    }
+    if ( $2 ~ /T$/ ) {
+      if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
+        print "${STOUCH" pin "} @" $5 " " b > f623
+      } else {
+        print "${TOUCH" pin "} " s " " b > f622
+      }
     }
     next_pin()
   } else {
@@ -5202,7 +5229,7 @@ if [ 'Y' == "${lastReply}" ]; then
   fi
 else
   echo
-  echo "WARNING: File ${f999Base} was not touched"
+  echo "Warning: File ${f999Base} was not touched, because not all steps were executed"
 fi
 
 ###########################################################

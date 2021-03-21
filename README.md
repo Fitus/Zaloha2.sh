@@ -3,9 +3,10 @@
 Zaloha2 is a small and simple directory synchronizer:
 
  * Zaloha2 is a BASH script that uses only FIND, SORT and AWK.
- * All you need is the Zaloha2.sh file (contains ~110 kB of program code and ~96 kB of documentation).
+ * All you need is the Zaloha2.sh file (contains ~113 kB of program code and ~98 kB of documentation).
  * No compilation, installation and configuration is required.
- * Cyber-secure: No new binary code, no new open ports, easily reviewable.
+ * Cyber-secure: No new binary code, no new open ports, no talking to any
+   "uncles" on the Internet, easily reviewable.
  * Three operation modes are available: the Local Mode, the Remote Source Mode and the Remote Backup Mode.
  * **Local Mode:** Both directories are available locally
    (local HDD/SSD, flash drive, mounted Samba or NFS volume).
@@ -368,8 +369,8 @@ Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--
 &nbsp; | More tolerant check of modification times of files (zero or even negative modification times are possible)
 &nbsp; | More tolerant check of target paths of symbolic links (empty target paths are possible on some OSes)
 &nbsp; | Minor code improvements and optimizations + improved documentation
-Code size 76 kB | Code size 112 kB
-Docu size 78 kB | Docu size 97 kB
+Code size 76 kB | Code size 113 kB
+Docu size 78 kB | Docu size 98 kB
 
 ## License
 MIT License

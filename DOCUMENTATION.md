@@ -5,7 +5,8 @@ Zaloha is a small and simple directory synchronizer:
 
  * Zaloha is a BASH script that uses only FIND, SORT and AWK. All you need
    is the Zaloha2.sh file. This documentation is contained in Zaloha2.sh too.
- * Cyber-secure: No new binary code, no new open ports, easily reviewable.
+ * Cyber-secure: No new binary code, no new open ports, no interaction with
+   the Internet, easily reviewable.
  * Three operation modes are available: Local Mode, Remote Source Mode and
    Remote Backup Mode
  * Local Mode: Both &lt;sourceDir&gt; and &lt;backupDir&gt; are available locally
@@ -98,8 +99,9 @@ Exec2:  copy files/directories to &lt;backupDir&gt; which exist only in &lt;sour
           <b>--noUnlink</b> option, see below)
 <b>unl.UP.?</b>  unlink file in &lt;backupDir&gt; + <b>UPDATE.?</b> (can be switched off via the
           <b>--noUnlink</b> option, see below)
-<b>ATTR:ugm</b>  update only attributes in &lt;backupDir&gt; (u=user ownership,
-          g=group ownership, m=mode) (optional feature, see below)
+<b>ATTR:ugmT</b> update only attributes in &lt;backupDir&gt; (u=user ownership,
+          g=group ownership, m=mode, T=modification time)
+          (optional features, see below)
 
 Exec3:  reverse-synchronization from &lt;backupDir&gt; to &lt;sourceDir&gt; (optional
         feature, can be activated via the <b>--revNew</b> and <b>--revUp</b> options)
@@ -513,8 +515,11 @@ to backslashes inside.
                     equal sizes and SHA-256 hashes. Calculation of the hashes
                     might dramatically slow down Zaloha. If additional updates
                     of files result from this comparison, they will be executed
-                    in step Exec5. This option is available in all three modes
-                    (Local, Remote Source and Remote Backup).
+                    in step Exec5. Moreover, if files have equal sizes and
+                    SHA-256 hashes but different modification times, copying of
+                    such files will be prevented and only the modification times
+                    will be aligned (<b>ATTR:T</b>). This option is available in all
+                    three modes (Local, Remote Source and Remote Backup).
 
 <b>--noUnlink</b>      ... never unlink multiply linked files in &lt;backupDir&gt; before
                     writing to them
@@ -1638,6 +1643,12 @@ If additional updates of files result from comparisons of SHA-256 hashes,
 they will be executed in step Exec5 (same principle as for the <b>--byteByByte</b>
 option).
 
+Additionally, Zaloha handles situations where the files have identical sizes
+and SHA-256 hashes, but different modification times: it then prevents copying
+of such files and only aligns their modification times (<b>ATTR:T</b>). This means:
+when Zaloha runs next time without the <b>--sha256</b> option, it will evaluate the
+files as synchronized based on equality of their sizes and modification times.
+
 The <b>--sha256</b> option has been developed for the Remote Modes, where the files
 to be compared reside on different hosts: The SHA-256 hashes are calculated
 on the respective hosts and for the comparisons of file contents, just the
@@ -1646,7 +1657,7 @@ hashes are transferred over the network, not the files themselves.
 The <b>--sha256</b> option is not limited to the Remote Modes - it can be used in
 the Local Mode too. Having CSV metadata that contains the SHA-256 hashes may
 be useful for other purposes as well, e.g. for de-duplication of files by
-content in the source directory: by sorting the CSV file 330 by the SHA-256
+content in the source directory: By sorting the CSV file 330 by the SHA-256
 hashes (column 13) one obtains a CSV file where the files with identical
 contents are located in adjacent records.
 </pre>
