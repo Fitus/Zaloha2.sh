@@ -188,6 +188,16 @@ Show the **Documentation** (quit viewing by typing <code>q</code>):
 Zaloha2.sh --help
 ```
 
+## So much typing?
+
+Some command lines may get lengthy. **But:** Usually you do not create new setups each day,
+nor you type the commands always from scratch. After having fine-tuned a given synchronization/backup process,
+you are advised to materialize the command line of Zaloha2 into a **wrapper script**.
+The wrapper script can then be attached to a **desktop icon**, for instance, so that the whole process
+can be started just by double-clicking on that icon. The advantage of wrapper scripts is that you can do more
+in them than just invoke Zaloha2: e.g. mount the backup media before, unmount it after,
+specially handle sensitive data and so on.
+
 ## Usage Screenshot (of the Local Mode)
 ![Simple_Demo_screenshot](Simple_Demo_screenshot.png)
 
