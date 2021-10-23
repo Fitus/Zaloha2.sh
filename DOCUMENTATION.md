@@ -23,7 +23,8 @@ Zaloha is a small and simple directory synchronizer:
    no limits for huge directory trees).
  * Zaloha has optional reverse-synchronization features (details below).
  * Zaloha can optionally compare the contents of files (details below).
- * Zaloha prepares scripts for case of eventual restore (details below).
+ * Zaloha prepares scripts for case of eventual restore (can be optionally
+   switched off to shorten the analysis phase, details below).
 
 To detect which files need synchronization, Zaloha compares file sizes and
 modification times. It is clear that such detection is not 100% waterproof.
@@ -133,7 +134,7 @@ Exec5:  updates resulting from optional comparing contents of files
 <b>unl.UP.b</b>  unlink file in &lt;backupDir&gt; + <b>UPDATE.b</b> (can be switched off via the
           <b>--noUnlink</b> option, see below)
 
-(internal use, for completion only)
+(internal use, for completeness only)
 -----------------------------------
 <b>OK</b>        object without needed action in &lt;sourceDir&gt; (either files or
           directories already synchronized with &lt;backupDir&gt;, or other objects
@@ -238,8 +239,8 @@ conflict between the work on the notebook and the work on the server).
 
 <b>REV.NEW:</b> If standalone files in &lt;backupDir&gt; are newer than the last run of
 Zaloha, and the <b>--revNew</b> option is given, then Zaloha reverse-copies that
-files to &lt;sourceDir&gt; (action code <b>REV.NEW</b>) including all necessary parent
-directories (action code <b>REV.MKDI</b>).
+files to &lt;sourceDir&gt; (action code <b>REV.NEW</b>). This might require creation of the
+eventually missing but needed structure of parent directories (<b>REV.MKDI</b>).
 
 <b>REV.UP:</b> If files exist under same paths in both &lt;sourceDir&gt; and &lt;backupDir&gt;,
 and the files in &lt;backupDir&gt; are newer, and the <b>--revUp</b> option is given,
@@ -628,17 +629,17 @@ to backslashes inside.
                     and use externally supplied CSV metadata file 320 instead
    (Explained in the Advanced Use of Zaloha section below).
 
-<b>--no610Hdr</b>    ... do not write header to the shellscript 610 for Exec1
-<b>--no621Hdr</b>    ... do not write header to the shellscript 621 for Exec2
-<b>--no622Hdr</b>    ... do not write header to the shellscript 622 for Exec2
-<b>--no623Hdr</b>    ... do not write header to the shellscript 623 for Exec2
-<b>--no631Hdr</b>    ... do not write header to the shellscript 631 for Exec3
-<b>--no632Hdr</b>    ... do not write header to the shellscript 632 for Exec3
-<b>--no633Hdr</b>    ... do not write header to the shellscript 633 for Exec3
-<b>--no640Hdr</b>    ... do not write header to the shellscript 640 for Exec4
-<b>--no651Hdr</b>    ... do not write header to the shellscript 651 for Exec5
-<b>--no652Hdr</b>    ... do not write header to the shellscript 652 for Exec5
-<b>--no653Hdr</b>    ... do not write header to the shellscript 653 for Exec5
+<b>--no610Hdr</b>      ... do not write header to the shellscript 610 for Exec1
+<b>--no621Hdr</b>      ... do not write header to the shellscript 621 for Exec2
+<b>--no622Hdr</b>      ... do not write header to the shellscript 622 for Exec2
+<b>--no623Hdr</b>      ... do not write header to the shellscript 623 for Exec2
+<b>--no631Hdr</b>      ... do not write header to the shellscript 631 for Exec3
+<b>--no632Hdr</b>      ... do not write header to the shellscript 632 for Exec3
+<b>--no633Hdr</b>      ... do not write header to the shellscript 633 for Exec3
+<b>--no640Hdr</b>      ... do not write header to the shellscript 640 for Exec4
+<b>--no651Hdr</b>      ... do not write header to the shellscript 651 for Exec5
+<b>--no652Hdr</b>      ... do not write header to the shellscript 652 for Exec5
+<b>--no653Hdr</b>      ... do not write header to the shellscript 653 for Exec5
    These options can be used only together with the <b>--noExec</b> option.
    (Explained in the Advanced Use of Zaloha section below).
 
@@ -937,7 +938,7 @@ third (and so on) instances.
 
 Known traps and problems
 ------------------------
-Beware of matching the start point directories &lt;sourceDir&gt; or &lt;backupDir&gt; 
+Beware of matching the start point directories &lt;sourceDir&gt; or &lt;backupDir&gt;
 themselves by the expressions and patterns.
 
 In some FIND versions, the name patterns starting with the asterisk (*)
@@ -1645,9 +1646,7 @@ option).
 
 Additionally, Zaloha handles situations where the files have identical sizes
 and SHA-256 hashes, but different modification times: it then prevents copying
-of such files and only aligns their modification times (<b>ATTR:T</b>). This means:
-when Zaloha runs next time without the <b>--sha256</b> option, it will evaluate the
-files as synchronized based on equality of their sizes and modification times.
+of such files and only aligns their modification times (<b>ATTR:T</b>).
 
 The <b>--sha256</b> option has been developed for the Remote Modes, where the files
 to be compared reside on different hosts: The SHA-256 hashes are calculated

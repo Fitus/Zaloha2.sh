@@ -52,7 +52,8 @@ Zaloha is a small and simple directory synchronizer:
    no limits for huge directory trees).
  * Zaloha has optional reverse-synchronization features (details below).
  * Zaloha can optionally compare the contents of files (details below).
- * Zaloha prepares scripts for case of eventual restore (details below).
+ * Zaloha prepares scripts for case of eventual restore (can be optionally
+   switched off to shorten the analysis phase, details below).
 
 To detect which files need synchronization, Zaloha compares file sizes and
 modification times. It is clear that such detection is not 100% waterproof.
@@ -161,7 +162,7 @@ UPDATE.b  update file in <backupDir> because its contents is not identical
 unl.UP.b  unlink file in <backupDir> + UPDATE.b (can be switched off via the
           "--noUnlink" option, see below)
 
-(internal use, for completion only)
+(internal use, for completeness only)
 -----------------------------------
 OK        object without needed action in <sourceDir> (either files or
           directories already synchronized with <backupDir>, or other objects
@@ -265,8 +266,8 @@ conflict between the work on the notebook and the work on the server).
 
 REV.NEW: If standalone files in <backupDir> are newer than the last run of
 Zaloha, and the "--revNew" option is given, then Zaloha reverse-copies that
-files to <sourceDir> (action code REV.NEW) including all necessary parent
-directories (action code REV.MKDI).
+files to <sourceDir> (action code REV.NEW). This might require creation of the
+eventually missing but needed structure of parent directories (REV.MKDI).
 
 REV.UP: If files exist under same paths in both <sourceDir> and <backupDir>,
 and the files in <backupDir> are newer, and the "--revUp" option is given,
@@ -654,17 +655,17 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     and use externally supplied CSV metadata file 320 instead
    (Explained in the Advanced Use of Zaloha section below).
 
---no610Hdr    ... do not write header to the shellscript 610 for Exec1
---no621Hdr    ... do not write header to the shellscript 621 for Exec2
---no622Hdr    ... do not write header to the shellscript 622 for Exec2
---no623Hdr    ... do not write header to the shellscript 623 for Exec2
---no631Hdr    ... do not write header to the shellscript 631 for Exec3
---no632Hdr    ... do not write header to the shellscript 632 for Exec3
---no633Hdr    ... do not write header to the shellscript 633 for Exec3
---no640Hdr    ... do not write header to the shellscript 640 for Exec4
---no651Hdr    ... do not write header to the shellscript 651 for Exec5
---no652Hdr    ... do not write header to the shellscript 652 for Exec5
---no653Hdr    ... do not write header to the shellscript 653 for Exec5
+--no610Hdr      ... do not write header to the shellscript 610 for Exec1
+--no621Hdr      ... do not write header to the shellscript 621 for Exec2
+--no622Hdr      ... do not write header to the shellscript 622 for Exec2
+--no623Hdr      ... do not write header to the shellscript 623 for Exec2
+--no631Hdr      ... do not write header to the shellscript 631 for Exec3
+--no632Hdr      ... do not write header to the shellscript 632 for Exec3
+--no633Hdr      ... do not write header to the shellscript 633 for Exec3
+--no640Hdr      ... do not write header to the shellscript 640 for Exec4
+--no651Hdr      ... do not write header to the shellscript 651 for Exec5
+--no652Hdr      ... do not write header to the shellscript 652 for Exec5
+--no653Hdr      ... do not write header to the shellscript 653 for Exec5
    These options can be used only together with the "--noExec" option.
    (Explained in the Advanced Use of Zaloha section below).
 
@@ -962,7 +963,7 @@ third (and so on) instances.
 
 Known traps and problems
 ------------------------
-Beware of matching the start point directories <sourceDir> or <backupDir> 
+Beware of matching the start point directories <sourceDir> or <backupDir>
 themselves by the expressions and patterns.
 
 In some FIND versions, the name patterns starting with the asterisk (*)
@@ -1663,9 +1664,7 @@ option).
 
 Additionally, Zaloha handles situations where the files have identical sizes
 and SHA-256 hashes, but different modification times: it then prevents copying
-of such files and only aligns their modification times (ATTR:T). This means:
-when Zaloha runs next time without the "--sha256" option, it will evaluate the
-files as synchronized based on equality of their sizes and modification times.
+of such files and only aligns their modification times (ATTR:T).
 
 The "--sha256" option has been developed for the Remote Modes, where the files
 to be compared reside on different hosts: The SHA-256 hashes are calculated
@@ -1828,6 +1827,9 @@ ZALOHADOCU
 
 # DEFINITIONS OF INDIVIDUAL FILES IN METADATA DIRECTORY OF ZALOHA
 
+metaDirDefaultBase='.Zaloha_metadata'
+metaDirTempDefaultBase='.Zaloha_metadata_temp'
+
 f000Base='000_parameters.csv'        # parameters under which Zaloha was invoked and internal variables
 
 f100Base='100_awkpreproc.awk'        # AWK preprocessor for other AWK programs
@@ -1949,7 +1951,7 @@ function progress_char {
       progressCurrColNo=4
     fi
     echo -n "${1}"
-    (( progressCurrColNo++ ))
+    (( progressCurrColNo ++ ))
   fi
 }
 
@@ -2354,7 +2356,6 @@ findGeneralOpsEsc="${findGeneralOpsEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
 
-metaDirDefaultBase='.Zaloha_metadata'
 metaDirDefault="${backupDir}${metaDirDefaultBase}"
 if [ ${metaDirPassed} -eq 0 ]; then
   metaDir="${metaDirDefault}"
@@ -2383,7 +2384,6 @@ metaDirEsc="${metaDirEsc//${NLINE}/${TRIPLETN}}"
 
 ###########################################################
 
-metaDirTempDefaultBase='.Zaloha_metadata_temp'
 metaDirTempDefault="${sourceDir}${metaDirTempDefaultBase}"
 if [ ${metaDirTempPassed} -eq 0 ]; then
   metaDirTemp="${metaDirTempDefault}"
@@ -2786,7 +2786,7 @@ BEGIN {
   gsub( /TERMRED/, "\"\\033[91m\"" )
   gsub( /TERMBLUE/, "\"\\033[94m\"" )
   if ( $0 ~ /ONE_TO_MAXPARALLEL/ ) {
-    for ( i = 1; i <= mpa; i++ ) {
+    for ( i = 1; i <= mpa; i ++ ) {
       s = $0
       gsub( /ONE_TO_MAXPARALLEL/, i, s )
       gsub( /MAXPARALLEL/, mpa, s )
@@ -2858,7 +2858,7 @@ BEGIN {
   }
   cmd = cmd " '" startPoint "'"
   findOps = findOps " "
-  for ( i = 1; i <= length( findOps ); i++ ) {
+  for ( i = 1; i <= length( findOps ); i ++ ) {
     c = substr( findOps, i, 1 )
     if ( 1 == dqu ) {
       dqu = 0
@@ -3267,7 +3267,7 @@ function add_fragment_to_field( fragment, verbatim ) {
       if (( TRIPLET == $1 ) && (( 1 != fin ) || ( 0 != fpr ))) {
         error_exit( "AWK cleaner in unexpected state at begin of new record (1)" )
       }
-      for ( i = 1; i <= NF; i++ ) {
+      for ( i = 1; i <= NF; i ++ ) {
         if ( 1 == fpr ) {                               ## fin 14 or 16 in progress
           if ( TRIPLET == $i ) {                        # TRIPLET terminator found
             if (( 14 == fin ) && ( 1 == fne )) {        #  (append TRIPLETS to field 14 (if field 14 is not empty))
@@ -3280,7 +3280,7 @@ function add_fragment_to_field( fragment, verbatim ) {
               tsl = ""
             }
             rec = rec FSTAB TRIPLET
-            fin = fin + 2
+            fin += 2
             fpr = 0
             fne = 0
           } else if ( 1 == i ) {                        # fin 14 or 16 in progress continues on next line (= newline in file name)
@@ -3307,7 +3307,7 @@ function add_fragment_to_field( fragment, verbatim ) {
             } else {
               add_fragment_to_field( $i, 0 )
             }
-            fin = fin + 1
+            fin ++
             fne = 0
           }
         }
@@ -3405,9 +3405,9 @@ function target_paths_check() {
     error_exit( "Unexpected, column 5 of cleaned file (file's last modification time) is not numeric" )
   }
   if ( "f" == $3 ) {
-    cfd = cfd + 1
+    cfd ++
     if ( $5 > 0 ) {      # correct (expected) modification time is a positive integer
-      cfc = cfc + 1
+      cfc ++
     }
   }
   if ( $6 !~ ALPHAREGEX ) {
@@ -3455,9 +3455,9 @@ function target_paths_check() {
     error_exit( "Unexpected, column 15 of cleaned file is not the terminator field" )
   }
   if ( "l" == $3 ) {
-    csd = csd + 1
+    csd ++
     if ( $16 != "" ) {   # correct (expected) target path of a symbolic link is a non-empty string
-      csc = csc + 1
+      csc ++
     }
   } else {
     if ( $16 != "" ) {
@@ -3503,7 +3503,9 @@ AWKCHECKER
 
 start_progress 'Checking'
 
-${awk} -f "${f130}" -v checkDirs=0 -v sha256=0 "${fLastRun}"
+if [ ${noLastRun} -eq 0 ]; then
+  ${awk} -f "${f130}" -v checkDirs=0 -v sha256=0 "${fLastRun}"
+fi
 
 ${awk} -f "${f130}" -v checkDirs=1 -v sha256=${sha256} "${f330}"
 
@@ -3527,7 +3529,7 @@ BEGIN {
     && ( $7 !~ ZEROREGEX ) && (( "M" dv ) == ( "M" $7 ))  \
     && ( $8 !~ ZEROREGEX ) && (( "M" id ) == ( "M" $8 ))  \
   ) {
-    hcn = hcn + 1
+    hcn ++
     if ( $9 < hcn ) {
       error_exit( "Unexpected, detected hardlink count is higher than number of hardlinks to file" )
     }
@@ -3721,7 +3723,7 @@ function process_previous_record() {
       print_previous( "NEW" )
     } else if ( "l" == tp ) {                  # symbolic link only in <sourceDir> (case 24)
       print_previous( "OK" )                   #  (OK record needed for the restore scripts)
-      slc = slc + 1
+      slc ++
     } else {                                   # hardlink or other object only in <sourceDir> (cases 23,25)
       print_previous( "OK" )                   #  (OK record needed for the restore scripts)
     }
@@ -3766,7 +3768,7 @@ function process_previous_record() {
            if ( 0 == idc ) {
              idp = pt
            }
-           idc = idc + 1
+           idc ++
         }
         if ( "d" == $3 ) {                     ## directory in <sourceDir>
           if ( "d" == tp ) {                   # directory in <sourceDir>, directory in <backupDir> (case 1)
@@ -3852,7 +3854,7 @@ function process_previous_record() {
             remove( "u" )                      #  (unavoidable removal, see Corner Cases section)
           }
           print_current( "OK" )                #  (OK record needed for the restore scripts)
-          slc = slc + 1
+          slc ++
         } else {                               ## other object in <sourceDir>
           if ( tp ~ /[dfl]/ ) {                # other object in <sourceDir>, directory, file or symbolic link in <backupDir> (cases 17,18,19)
             xkp = pt                           #  (not possible to KEEP objects only in <backupDir> down from here due to occupied namespace)
@@ -4207,7 +4209,7 @@ BEGIN {
     if ( MAXPARALLEL <= pin ) {
       pin = 1
     } else {
-      pin = pin + 1
+      pin ++
     }
   } else {
     error_exit( "Unexpected action code" )
@@ -4367,7 +4369,7 @@ function next_pin() {
   if ( MAXPARALLEL <= pin ) {
     pin = 1
   } else {
-    pin = pin + 1
+    pin ++
   }
 }
 {
@@ -4437,7 +4439,7 @@ END {
 }
 AWKEXEC2
 
-start_progress 'Preparing shellscript for Exec2'
+start_progress 'Preparing shellscripts for Exec2'
 
 ${awk} -f "${f420}"                              \
        -v sourceDir="${sourceDirAwk}"            \
@@ -4616,7 +4618,7 @@ function next_pin() {
   if ( MAXPARALLEL <= pin ) {
     pin = 1
   } else {
-    pin = pin + 1
+    pin ++
   }
 }
 {
@@ -4670,7 +4672,7 @@ AWKEXEC3
 
 if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
-  start_progress 'Preparing shellscript for Exec3'
+  start_progress 'Preparing shellscripts for Exec3'
 
   ${awk} -f "${f430}"                              \
          -v sourceDir="${sourceDirAwk}"            \
@@ -4741,7 +4743,7 @@ fi
 
 if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
 
-  start_progress 'Preparing shellscript for Exec5'
+  start_progress 'Preparing shellscripts for Exec5'
 
   ${awk} -f "${f420}"                              \
          -v sourceDir="${sourceDirAwk}"            \
@@ -4968,7 +4970,7 @@ BEGIN {
       if ( MAXPARALLEL <= pin ) {
         pin = 1
       } else {
-        pin = pin + 1
+        pin ++
       }
     } else if ( "l" == $3 ) {
       print "${LNSYMB} '" ol "' " r > f820

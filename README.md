@@ -19,7 +19,7 @@ Zaloha2 is a small and simple directory synchronizer:
  * Zaloha2 is not limited by memory (metadata is processed as CSV files, no limits for huge directory trees).
  * Zaloha2 has optional reverse-synchronization features.
  * Zaloha2 can optionally compare the contents of files.
- * Zaloha2 prepares scripts for case of eventual restore.
+ * Zaloha2 prepares scripts for case of eventual restore (can be optionally switched off to shorten the analysis phase).
 
 Full documentation is available both [online](DOCUMENTATION.md) as well as inside of Zaloha2.sh.
 
@@ -57,6 +57,13 @@ The simplest way: Under the green button "<b>Code</b>" above, choose "<b>Downloa
 From the downloaded ZIP archive, extract <code>Zaloha2.sh</code> and make it executable (<code>chmod u+x Zaloha2.sh</code>).
 
 For running the Simple Demo, extract also the scripts <code>Simple_Demo_step1/2/3/4/5/6/7.sh</code> and make them executable.
+
+Optionally verify the integrity of Zaloha2.sh by its SHA-256 hash:
+
+```bash
+sha256sum Zaloha2.sh
+8db7631d95705491143074da91e344f323b9f0c19f44e26aa0b0dd97c9e8b3e6  Zaloha2.sh
+```
 
 ## Usage Examples
 
@@ -180,6 +187,12 @@ Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --noProgress
 
 ```bash
 Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --noExec
+```
+
+Put Zaloha2 **metadata** (working files of Zaloha2.sh) to a **separate storage**, e.g. for speed reasons:
+
+```bash
+Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --metaDir="/fast_storage/Zaloha_metadata/instance_001"
 ```
 
 Show the **Documentation** (quit viewing by typing <code>q</code>):
@@ -314,7 +327,7 @@ CSV data about files that contain their SHA-256 hashes can be used for other pur
 Assume you have files with identical (duplicate) contents scattered across your filesystem, and you want to keep only one copy
 per unique file. In other words: de-duplicate files by content. The finding of files with duplicate contents can be achieved
 by sorting the CSV file 330 by the SHA-256 hashes (= by column 13) and evaluating the result, e.g. by a simple AWK program that
-prints out the files where the SHA-256 hash equals to the SHA-256 hash in the immediately preceding record in the sorted file ...
+prints out the files where the SHA-256 hash equals to the SHA-256 hash in the immediately preceding record in the sorted file.
 
 ## Performance tuning in the Remote Source and Remote Backup Modes
 
