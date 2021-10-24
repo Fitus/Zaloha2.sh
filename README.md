@@ -58,7 +58,7 @@ From the downloaded ZIP archive, extract <code>Zaloha2.sh</code> and make it exe
 
 For running the Simple Demo, extract also the scripts <code>Simple_Demo_step1/2/3/4/5/6/7.sh</code> and make them executable.
 
-Optionally verify the integrity of Zaloha2.sh by its SHA-256 hash:
+The integrity of Zaloha2.sh can be verified by its SHA-256 hash. The hash of current version is:
 
 ```bash
 sha256sum Zaloha2.sh
@@ -189,10 +189,13 @@ Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --noProgress
 Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --noExec
 ```
 
-Put Zaloha2 **metadata** (working files of Zaloha2.sh) to a **separate storage**, e.g. for speed reasons:
+Put **Zaloha2 Metadata** (working files of Zaloha2.sh) to a **separate storage**, e.g. for speed reasons
+(please note that if Zaloha2.sh is used for multiple synchronizations,
+then each such use (instance) of Zaloha2.sh requires a separate Metadata directory):
 
 ```bash
-Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --metaDir="/fast_storage/Zaloha_metadata/instance_001"
+Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" \
+           --metaDir="/fast_storage/Zaloha_metadata/data_of_instance_0001"
 ```
 
 Show the **Documentation** (quit viewing by typing <code>q</code>):
