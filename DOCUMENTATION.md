@@ -100,6 +100,11 @@ Exec2:  copy files/directories to &lt;backupDir&gt; which exist only in &lt;sour
           <b>--noUnlink</b> option, see below)
 <b>unl.UP.?</b>  unlink file in &lt;backupDir&gt; + <b>UPDATE.?</b> (can be switched off via the
           <b>--noUnlink</b> option, see below)
+SLINK.n   create new symbolic link in &lt;backupDir&gt; (if synchronization of
+          symbolic links is activated via the <b>--syncSLinks</b> option)
+SLINK.u   update (= unlink+create) a symbolic link in &lt;backupDir&gt; (if
+          synchronization of symbolic links is activated via the
+          <b>--syncSLinks</b> option)
 <b>ATTR:ugmT</b> update only attributes in &lt;backupDir&gt; (u=user ownership,
           g=group ownership, m=mode, T=modification time)
           (optional features, see below)
@@ -195,7 +200,7 @@ in &lt;sourceDir&gt;. If this feature is switched on (via the <b>--detectHLinksS
 option), Zaloha internally flags the second, third, etc. links to same file as
 "hardlinks", and synchronizes to &lt;backupDir&gt; only the first link (the "file").
 The "hardlinks" are not synchronized to &lt;backupDir&gt;, but Zaloha prepares a
-restore script in its metadata directory. If this feature is switched off
+restore script for them (file 830). If this feature is switched off
 (no <b>--detectHLinksS</b> option), then each link to a multiply linked file is
 treated as a separate regular file.
 
@@ -208,22 +213,26 @@ hardlinks (see code of AWKHLINKS). Generally, use this feature only after proper
 testing on your filesystems. Be cautious as inode-related issues exist on some
 filesystems and network-mounted filesystems.
 
-Symbolic links in &lt;sourceDir&gt;: In the absence of the <b>--followSLinksS</b> option,
-they are neither followed nor synchronized to &lt;backupDir&gt;, and Zaloha prepares
-a restore script in its metadata directory. If the <b>--followSLinksS</b> option is
-given, symbolic links on &lt;sourceDir&gt; are followed and the referenced files and
-directories are synchronized to &lt;backupDir&gt;. See section Following Symbolic
-Links for details.
+Symbolic links in &lt;sourceDir&gt;: There are two dimensions: The first dimension is
+whether to follow them or not (the <b>--followSLinksS</b> option). If follow, then
+the referenced files and directories are synchronized to &lt;backupDir&gt; and only
+the broken symbolic links stay as symbolic links. If not follow, then all
+symbolic links stay as symbolic links. See section Following Symbolic Links for
+details. Now comes the second dimension: What to do with the symbolic links that
+stay as symbolic links: They are always kept in the metadata and Zaloha prepares
+a restore script for them (file 820). Additionally, if the option <b>--syncSLinks</b>
+is given, Zaloha will indeed synchronize them to &lt;backupDir&gt;.
 
 Zaloha does not synchronize other types of objects in &lt;sourceDir&gt; (named pipes,
 sockets, special devices, etc). These objects are considered to be part of the
 operating system or parts of applications, and dedicated scripts for their
 (re-)creation should exist.
 
-It was a conscious decision to synchronize to &lt;backupDir&gt; only files and
-directories and keep other objects in metadata only. This gives more freedom
-in the choice of filesystem type for &lt;backupDir&gt;, because every filesystem type
-is able to store files and directories, but not necessarily the other objects.
+It was a conscious decision for a default behaviour to synchronize to
+&lt;backupDir&gt; only files and directories and keep other objects in metadata only.
+This gives more freedom in the choice of filesystem type for &lt;backupDir&gt;,
+because every filesystem type is able to store files and directories,
+but not necessarily the other objects.
 
 Exec3:
 ------
@@ -337,7 +346,7 @@ Please note that by not keeping the Zaloha metadata directory, you sacrifice
 some functionality (see <b>--noLastRun</b> option below), and you loose the CSV
 metadata for an eventual analysis of problems and you loose the shellscripts
 for the case of restore (especially the scripts to restore the symbolic links
-and hardlinks (which are kept in metadata only)).
+and hardlinks (which are eventually kept in metadata only)).
 
 Temporary Metadata directory of Zaloha
 --------------------------------------
@@ -549,6 +558,8 @@ to backslashes inside.
 <b>--followSLinksB</b> ... follow symbolic links on &lt;backupDir&gt;
                     Please see section Following Symbolic Links for details.
 
+<b>--syncSLinks</b>    ... synchronize symbolic links from &lt;sourceDir&gt; to &lt;backupDir&gt;
+
 <b>--noWarnSLinks</b>  ... suppress warnings related to symbolic links
 
 <b>--noRestore</b>     ... do not prepare scripts for the case of restore (= saves
@@ -581,8 +592,8 @@ to backslashes inside.
     pass a FIND expression to exclude the Metadata directory from the respective
     FIND scan via &lt;findGeneralOps&gt;.
 
-    If Zaloha is used to synchronize multiple directories, then each such
-    instance of Zaloha must have its own separate Metadata directory.
+    If Zaloha is used for multiple synchronizations, then each such instance
+    of Zaloha must have its own separate Metadata directory.
 
     In Remote Backup Mode, if &lt;metaDir&gt; is relative, then it is relative to the
     SSH login directory of the user on the remote backup host.
@@ -596,8 +607,8 @@ to backslashes inside.
     then it is necessary to explicitly pass a FIND expression to exclude it
     from the respective FIND scan via &lt;findGeneralOps&gt;.
 
-    If Zaloha is used to synchronize multiple directories in the Remote Source
-    or Remote Backup Modes, then each such instance of Zaloha must have its own
+    If Zaloha is used for multiple synchronizations in the Remote Source or
+    Remote Backup Modes, then each such instance of Zaloha must have its own
     separate temporary Metadata directory.
 
     In Remote Source Mode, if &lt;metaDirTemp&gt; is relative, then it is relative to
@@ -1206,19 +1217,19 @@ newer than the last run of Zaloha, the actions will be <b>REMOVE.!.</b>
 Corner case <b>--detectHLinksS</b> with objects in &lt;backupDir&gt; under same paths as
 the seconds, third etc. hardlinks in &lt;sourceDir&gt; (the ones that will be tagged
 as "hardlinks" (h) in CSV metadata after AWKHLINKS): The objects in &lt;backupDir&gt;
-will be (unavoidably) removed to avoid misleading situations in that for a
+will be (unavoidably) removed to prevent misleading situations in that for a
 hardlinked file in &lt;sourceDir&gt;, &lt;backupDir&gt; would contain a different object
 (or eventually even a different file) under same path.
 
 [SCC_CONFL_03]
 Corner case objects in &lt;backupDir&gt; under same paths as symbolic links in
-&lt;sourceDir&gt;: The objects in &lt;backupDir&gt; will be (unavoidably) removed to avoid
-misleading situations in that for a symbolic link in &lt;sourceDir&gt; that points
-to an object, &lt;backupDir&gt; would contain a different object under same path.
-The only exception is when the objects in &lt;backupDir&gt; are symbolic links too,
-in which case they will be kept (but not changed). Please see section
-Following Symbolic Links on when symbolic links are not reported as
-symbolic links by FIND.
+&lt;sourceDir&gt;: The objects in &lt;backupDir&gt; will be (unavoidably) removed to prevent
+misleading situations in that for a symbolic link in &lt;sourceDir&gt; a different
+type of object would exist in &lt;backupDir&gt; under same path.
+If the objects in &lt;backupDir&gt; are symbolic links too, they will be either
+synchronized (if the <b>--syncSLinks</b> option is given) or kept (and not changed).
+Please see section Following Symbolic Links on when symbolic links are
+reported as symbolic links by FIND.
 
 [SCC_CONFL_04]
 Corner case objects in &lt;backupDir&gt; under same paths as other objects (p/s/c/b/D)
@@ -1322,7 +1333,7 @@ this results in ( 5 x 4 ) + 5 + 4 = 29 cases to be handled by AWKDIFF:
   &lt;sourceDir&gt;.
 
   Note 2: Please see section Following Symbolic Links on when symbolic links
-  are not reported as symbolic links by FIND.
+  are reported as symbolic links by FIND.
 
 The AWKDIFF code is commented on key places to make orientation easier.
 A good case to begin with is case 6 (file in &lt;sourceDir&gt;, file in &lt;backupDir&gt;),

@@ -3,7 +3,7 @@
 Zaloha2 is a small and simple directory synchronizer:
 
  * Zaloha2 is a BASH script that uses only FIND, SORT and AWK.
- * All you need is the Zaloha2.sh file (contains ~113 kB of program code and ~98 kB of documentation).
+ * All you need is the Zaloha2.sh file (contains ~115 kB of program code and ~99 kB of documentation).
  * No compilation, installation and configuration is required.
  * Cyber-secure: No new binary code, no new open ports, no talking to any
    "uncles" on the Internet, easily reviewable.
@@ -62,7 +62,7 @@ The integrity of Zaloha2.sh can be verified by its SHA-256 hash. The hash of cur
 
 ```bash
 sha256sum Zaloha2.sh
-8db7631d95705491143074da91e344f323b9f0c19f44e26aa0b0dd97c9e8b3e6  Zaloha2.sh
+d0471a3d60d3788c966b418b01f6e1b2d21afdb5fcbb8a69903d1bd188be2978  Zaloha2.sh
 ```
 
 ## Usage Examples
@@ -257,7 +257,7 @@ This mode is activated by the option <code>--sourceUserHost</code>.
  * The FIND scan of the backup directory occurs locally.
  * The CSV metadata is compared by a sequence of sorts and AWK processing steps (occurs locally).
  * The results (= prepared synchronization actions) are presented to the user for confirmation.
- * If the user confirms, the synchronization actions are executed (via SCP).
+ * If the user confirms, the synchronization actions are executed (via SSH and SCP).
  * A non-interactive regime is available as well.
 
 ### Usage Example of the Remote Source Mode
@@ -395,8 +395,8 @@ Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--
 &nbsp; | More tolerant check of modification times of files (zero or even negative modification times are possible)
 &nbsp; | More tolerant check of target paths of symbolic links (empty target paths are possible on some OSes)
 &nbsp; | Minor code improvements and optimizations + improved documentation
-Code size 76 kB | Code size 113 kB
-Docu size 78 kB | Docu size 98 kB
+Code size 76 kB | Code size 115 kB
+Docu size 78 kB | Docu size 99 kB
 
 ## License
 MIT License

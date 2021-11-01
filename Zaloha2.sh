@@ -128,6 +128,11 @@ unl.UP.!  unlink file in <backupDir> + UPDATE.! (can be switched off via the
           "--noUnlink" option, see below)
 unl.UP.?  unlink file in <backupDir> + UPDATE.? (can be switched off via the
           "--noUnlink" option, see below)
+SLINK.n   create new symbolic link in <backupDir> (if synchronization of
+          symbolic links is activated via the "--syncSLinks" option)
+SLINK.u   update (= unlink+create) a symbolic link in <backupDir> (if
+          synchronization of symbolic links is activated via the
+          "--syncSLinks" option)
 ATTR:ugmT update only attributes in <backupDir> (u=user ownership,
           g=group ownership, m=mode, T=modification time)
           (optional features, see below)
@@ -222,7 +227,7 @@ in <sourceDir>. If this feature is switched on (via the "--detectHLinksS"
 option), Zaloha internally flags the second, third, etc. links to same file as
 "hardlinks", and synchronizes to <backupDir> only the first link (the "file").
 The "hardlinks" are not synchronized to <backupDir>, but Zaloha prepares a
-restore script in its metadata directory. If this feature is switched off
+restore script for them (file 830). If this feature is switched off
 (no "--detectHLinksS" option), then each link to a multiply linked file is
 treated as a separate regular file.
 
@@ -235,22 +240,26 @@ hardlinks (see code of AWKHLINKS). Generally, use this feature only after proper
 testing on your filesystems. Be cautious as inode-related issues exist on some
 filesystems and network-mounted filesystems.
 
-Symbolic links in <sourceDir>: In the absence of the "--followSLinksS" option,
-they are neither followed nor synchronized to <backupDir>, and Zaloha prepares
-a restore script in its metadata directory. If the "--followSLinksS" option is
-given, symbolic links on <sourceDir> are followed and the referenced files and
-directories are synchronized to <backupDir>. See section Following Symbolic
-Links for details.
+Symbolic links in <sourceDir>: There are two dimensions: The first dimension is
+whether to follow them or not (the "--followSLinksS" option). If follow, then
+the referenced files and directories are synchronized to <backupDir> and only
+the broken symbolic links stay as symbolic links. If not follow, then all
+symbolic links stay as symbolic links. See section Following Symbolic Links for
+details. Now comes the second dimension: What to do with the symbolic links that
+stay as symbolic links: They are always kept in the metadata and Zaloha prepares
+a restore script for them (file 820). Additionally, if the option "--syncSLinks"
+is given, Zaloha will indeed synchronize them to <backupDir>.
 
 Zaloha does not synchronize other types of objects in <sourceDir> (named pipes,
 sockets, special devices, etc). These objects are considered to be part of the
 operating system or parts of applications, and dedicated scripts for their
 (re-)creation should exist.
 
-It was a conscious decision to synchronize to <backupDir> only files and
-directories and keep other objects in metadata only. This gives more freedom
-in the choice of filesystem type for <backupDir>, because every filesystem type
-is able to store files and directories, but not necessarily the other objects.
+It was a conscious decision for a default behaviour to synchronize to
+<backupDir> only files and directories and keep other objects in metadata only.
+This gives more freedom in the choice of filesystem type for <backupDir>,
+because every filesystem type is able to store files and directories,
+but not necessarily the other objects.
 
 Exec3:
 ------
@@ -364,7 +373,7 @@ Please note that by not keeping the Zaloha metadata directory, you sacrifice
 some functionality (see "--noLastRun" option below), and you loose the CSV
 metadata for an eventual analysis of problems and you loose the shellscripts
 for the case of restore (especially the scripts to restore the symbolic links
-and hardlinks (which are kept in metadata only)).
+and hardlinks (which are eventually kept in metadata only)).
 
 Temporary Metadata directory of Zaloha
 --------------------------------------
@@ -575,6 +584,8 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --followSLinksB ... follow symbolic links on <backupDir>
                     Please see section Following Symbolic Links for details.
 
+--syncSLinks    ... synchronize symbolic links from <sourceDir> to <backupDir>
+
 --noWarnSLinks  ... suppress warnings related to symbolic links
 
 --noRestore     ... do not prepare scripts for the case of restore (= saves
@@ -607,8 +618,8 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
     pass a FIND expression to exclude the Metadata directory from the respective
     FIND scan via <findGeneralOps>.
 
-    If Zaloha is used to synchronize multiple directories, then each such
-    instance of Zaloha must have its own separate Metadata directory.
+    If Zaloha is used for multiple synchronizations, then each such instance
+    of Zaloha must have its own separate Metadata directory.
 
     In Remote Backup Mode, if <metaDir> is relative, then it is relative to the
     SSH login directory of the user on the remote backup host.
@@ -622,8 +633,8 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
     then it is necessary to explicitly pass a FIND expression to exclude it
     from the respective FIND scan via <findGeneralOps>.
 
-    If Zaloha is used to synchronize multiple directories in the Remote Source
-    or Remote Backup Modes, then each such instance of Zaloha must have its own
+    If Zaloha is used for multiple synchronizations in the Remote Source or
+    Remote Backup Modes, then each such instance of Zaloha must have its own
     separate temporary Metadata directory.
 
     In Remote Source Mode, if <metaDirTemp> is relative, then it is relative to
@@ -1228,19 +1239,19 @@ newer than the last run of Zaloha, the actions will be REMOVE.!.
 Corner case "--detectHLinksS" with objects in <backupDir> under same paths as
 the seconds, third etc. hardlinks in <sourceDir> (the ones that will be tagged
 as "hardlinks" (h) in CSV metadata after AWKHLINKS): The objects in <backupDir>
-will be (unavoidably) removed to avoid misleading situations in that for a
+will be (unavoidably) removed to prevent misleading situations in that for a
 hardlinked file in <sourceDir>, <backupDir> would contain a different object
 (or eventually even a different file) under same path.
 
 [SCC_CONFL_03]
 Corner case objects in <backupDir> under same paths as symbolic links in
-<sourceDir>: The objects in <backupDir> will be (unavoidably) removed to avoid
-misleading situations in that for a symbolic link in <sourceDir> that points
-to an object, <backupDir> would contain a different object under same path.
-The only exception is when the objects in <backupDir> are symbolic links too,
-in which case they will be kept (but not changed). Please see section
-Following Symbolic Links on when symbolic links are not reported as
-symbolic links by FIND.
+<sourceDir>: The objects in <backupDir> will be (unavoidably) removed to prevent
+misleading situations in that for a symbolic link in <sourceDir> a different
+type of object would exist in <backupDir> under same path.
+If the objects in <backupDir> are symbolic links too, they will be either
+synchronized (if the "--syncSLinks" option is given) or kept (and not changed).
+Please see section Following Symbolic Links on when symbolic links are
+reported as symbolic links by FIND.
 
 [SCC_CONFL_04]
 Corner case objects in <backupDir> under same paths as other objects (p/s/c/b/D)
@@ -1343,7 +1354,7 @@ this results in ( 5 x 4 ) + 5 + 4 = 29 cases to be handled by AWKDIFF:
   <sourceDir>.
 
   Note 2: Please see section Following Symbolic Links on when symbolic links
-  are not reported as symbolic links by FIND.
+  are reported as symbolic links by FIND.
 
 The AWKDIFF code is commented on key places to make orientation easier.
 A good case to begin with is case 6 (file in <sourceDir>, file in <backupDir>),
@@ -2063,6 +2074,7 @@ pRevGroup=0
 pRevMode=0
 followSLinksS=0
 followSLinksB=0
+syncSLinks=0
 noWarnSLinks=0
 noRestore=0
 optimCSV=0
@@ -2132,6 +2144,7 @@ do
     --pRevMode)          opt_dupli_check ${pRevMode} "${tmpVal}";       pRevMode=1 ;;
     --followSLinksS)     opt_dupli_check ${followSLinksS} "${tmpVal}";  followSLinksS=1 ;;
     --followSLinksB)     opt_dupli_check ${followSLinksB} "${tmpVal}";  followSLinksB=1 ;;
+    --syncSLinks)        opt_dupli_check ${syncSLinks} "${tmpVal}";     syncSLinks=1 ;;
     --noWarnSLinks)      opt_dupli_check ${noWarnSLinks} "${tmpVal}";   noWarnSLinks=1 ;;
     --noRestore)         opt_dupli_check ${noRestore} "${tmpVal}";      noRestore=1 ;;
     --optimCSV)          opt_dupli_check ${optimCSV} "${tmpVal}";       optimCSV=1 ;;
@@ -2566,7 +2579,7 @@ f310RemoteSourceScp="${metaDirTempScp}${f310Base}"
 f631RemoteSourceScp="${metaDirTempScp}${f631Base}"
 f633RemoteSourceScp="${metaDirTempScp}${f633Base}"
 
-unset copyToRemoteSource
+copyToRemoteSource=()
 copyFromRemoteSource=
 removeFromRemoteSource=
 
@@ -2601,7 +2614,7 @@ f860RemoteBackupScp="${metaDirScp}${f860Base}"
 f870RemoteBackupScp="${metaDirScp}${f870Base}"
 f999RemoteBackupScp="${metaDirScp}${f999Base}"
 
-unset copyToRemoteBackup
+copyToRemoteBackup=()
 copyFromRemoteBackup=
 removeFromRemoteBackup=
 
@@ -2663,6 +2676,7 @@ ${TRIPLET}${FSTAB}pRevGroup${FSTAB}${pRevGroup}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}pRevMode${FSTAB}${pRevMode}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}followSLinksS${FSTAB}${followSLinksS}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}followSLinksB${FSTAB}${followSLinksB}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}syncSLinks${FSTAB}${syncSLinks}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noWarnSLinks${FSTAB}${noWarnSLinks}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noRestore${FSTAB}${noRestore}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}optimCSV${FSTAB}${optimCSV}${FSTAB}${TRIPLET}
@@ -2825,7 +2839,7 @@ BEGIN {
     gsub( CNTRLREGEX, TERMBLUE TRIPLETC TERMNORM, pt )
     gsub( TRIPLETNREGEX, TERMBLUE TRIPLETN TERMNORM, pt )
     gsub( TRIPLETTREGEX, TERMBLUE TRIPLETT TERMNORM, pt )
-    if ( $2 ~ /^(REMOVE|UPDATE|unl\.UP|REV\.UP)/ ) {    # actions requiring more attention
+    if ( $2 ~ /^(REMOVE|UPDATE|unl\.UP|SLINK\.u|REV\.UP)/ ) {    # actions requiring more attention
       printf "%s%-10s%s%s\n", TERMRED, $2, TERMNORM, pt
     } else {
       printf "%-10s%s\n", $2, pt
@@ -3029,7 +3043,7 @@ if [ ${remoteSource} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  unset copyToRemoteSource
+  copyToRemoteSource=()
 
 elif [ ${remoteBackup} -eq 1 ]; then
 
@@ -3039,7 +3053,7 @@ elif [ ${remoteBackup} -eq 1 ]; then
 
   progress_scp_meta '>'
 
-  unset copyToRemoteBackup
+  copyToRemoteBackup=()
 
 fi
 
@@ -3064,6 +3078,8 @@ if [ ${noLastRun} -eq 0 ]; then
 else
 
   files_not_prepared "${f300}"
+
+  removeFromRemoteBackup+="${f300RemoteBackupScp} "
 
   fLastRun='/dev/null'
 
@@ -3700,7 +3716,7 @@ function rev_up_file() {
   }
 }
 function attributes_or_ok( atr ) {
-  if (( 1 == pMode ) && ( $12 != md )) {
+  if (( 1 == pMode ) && ( $12 != md ) && ( "l" != tp )) {
     atr = "m" atr
   }
   if (( 1 == pGroup ) && ( $11 != gr )) {
@@ -3722,7 +3738,11 @@ function process_previous_record() {
     } else if ( "f" == tp ) {                  # file only in <sourceDir> (case 22)
       print_previous( "NEW" )
     } else if ( "l" == tp ) {                  # symbolic link only in <sourceDir> (case 24)
-      print_previous( "OK" )                   #  (OK record needed for the restore scripts)
+      if ( 1 == syncSLinks ) {
+         print_previous( "SLINK.n" )           #  (create the symbolic link in <backupDir>)
+      } else {
+         print_previous( "OK" )                #  (do not create the symbolic link, just produce an OK record for the restore scripts)
+      }
       slc ++
     } else {                                   # hardlink or other object only in <sourceDir> (cases 23,25)
       print_previous( "OK" )                   #  (OK record needed for the restore scripts)
@@ -3848,19 +3868,32 @@ function process_previous_record() {
           print_current( "OK" )                #  (OK record needed for the restore scripts)
         } else if ( "l" == $3 ) {              ## symbolic link in <sourceDir>
           if ( "l" == tp ) {                   # symbolic link in <sourceDir>, symbolic link in <backupDir> (case 15)
-            print_previous( "KEEP" )           #  ( keep the symbolic link in <backupDir>, but do not change it)
+            if ( 1 == syncSLinks ) {
+              if ( ol == $16 ) {
+                attributes_or_ok( "" )         #  (the symbolic links are synchronized (= have identical target paths))
+              } else {
+                print_curr_prev( "SLINK.u" )   #  (the symbolic links are not synchronized, an "update" is needed)
+              }
+            } else {
+              print_previous( "KEEP" )         #  (keep the symbolic link in <backupDir>, but do not change it)
+              print_current( "OK" )            #  (produce an OK record for the restore scripts)
+            }
           } else {                             # symbolic link in <sourceDir>, directory, file or other object in <backupDir> (cases 13,14,16)
             xkp = pt                           #  (not possible to KEEP objects only in <backupDir> down from here due to occupied namespace)
             remove( "u" )                      #  (unavoidable removal, see Corner Cases section)
+            if ( 1 == syncSLinks ) {
+              print_current( "SLINK.n" )       #  (create the symbolic link in <backupDir>)
+            } else {
+              print_current( "OK" )            #  (do not create the symbolic link, just produce an OK record for the restore scripts)
+            }
           }
-          print_current( "OK" )                #  (OK record needed for the restore scripts)
           slc ++
         } else {                               ## other object in <sourceDir>
           if ( tp ~ /[dfl]/ ) {                # other object in <sourceDir>, directory, file or symbolic link in <backupDir> (cases 17,18,19)
             xkp = pt                           #  (not possible to KEEP objects only in <backupDir> down from here due to occupied namespace)
             remove( "u" )                      #  (unavoidable removal, see Corner Cases section)
           } else {                             # other object in <sourceDir>, other object in <backupDir> (case 20)
-            print_previous( "KEEP" )           #  ( keep the other object in <backupDir>, but do not change it)
+            print_previous( "KEEP" )           #  (keep the other object in <backupDir>, but do not change it)
           }
           print_current( "OK" )                #  (OK record for keeping in metadata)
         }
@@ -3892,7 +3925,7 @@ END {
   if ( 1 == prr ) {
     process_previous_record()
   }
-  if (( 0 == noWarnSLinks ) && ( 0 != slc )) {
+  if (( 0 == syncSLinks ) && ( 0 == noWarnSLinks ) && ( 0 != slc )) {
     if ( 1 == followSLinksS ) {
       warning( slc " broken symbolic link(s) in <sourceDir> that are not synchronized to <backupDir>:" \
                    " they are saved in the CSV metadata and in the restore script 820" )
@@ -3937,6 +3970,7 @@ ${awk} -f "${f170}"                       \
        -v pGroup=${pGroup}                \
        -v pMode=${pMode}                  \
        -v followSLinksS=${followSLinksS}  \
+       -v syncSLinks=${syncSLinks}        \
        -v noWarnSLinks=${noWarnSLinks}    \
        -v noLastRun=${noLastRun}          \
        -v noIdentCheck=${noIdentCheck}    \
@@ -4062,7 +4096,7 @@ BEGIN {
   }
   if ( $2 ~ /^(UPDATE\.b|unl\.UP\.b)/ ) {
     print > f550
-  } else if ( $2 ~ /^(MKDIR|NEW|UPDATE|unl\.UP|ATTR)/ ) {
+  } else if ( $2 ~ /^(MKDIR|NEW|UPDATE|unl\.UP|SLINK|ATTR)/ ) {
     print > f520
   } else if ( $2 ~ /^(REV\.MKDI|REV\.NEW|REV\.UP)/ ) {
     print > f530
@@ -4292,7 +4326,6 @@ BEGIN {
     }
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
       print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f622
-      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f623
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f622
@@ -4310,11 +4343,24 @@ BEGIN {
   if ( 0 == no623Hdr ) {
     BIN_BASH > f623
     print "backupDir='" backupDir "'" > f623
+    if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
+      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f623
+    }
+    if ( 1 == syncSLinks ) {
+      print "UNLINK" ONE_TO_MAXPARALLEL "='rm -f'" > f623
+      print "LNSYMB" ONE_TO_MAXPARALLEL "='ln -s --'" > f623
+    }
     if ( 1 == pUser ) {
       print "CHOWN" ONE_TO_MAXPARALLEL "='chown'" > f623
+      if ( 1 == syncSLinks ) {
+        print "CHOWN_LNSYMB" ONE_TO_MAXPARALLEL "='chown -h'" > f623
+      }
     }
     if ( 1 == pGroup ) {
       print "CHGRP" ONE_TO_MAXPARALLEL "='chgrp'" > f623
+      if ( 1 == syncSLinks ) {
+        print "CHGRP_LNSYMB" ONE_TO_MAXPARALLEL "='chgrp -h'" > f623
+      }
     }
     if ( 1 == pMode ) {
       print "CHMOD" ONE_TO_MAXPARALLEL "='chmod'" > f623
@@ -4365,6 +4411,14 @@ function apply_attr() {
     print "${CHMOD" pin "} " m " " b > f623
   }
 }
+function apply_attr_lnsymb() {
+  if ( 1 == pUser ) {
+    print "${CHOWN_LNSYMB" pin "} " u " " b > f623
+  }
+  if ( 1 == pGroup ) {
+    print "${CHGRP_LNSYMB" pin "} " g " " b > f623
+  }
+}
 function next_pin() {
   if ( MAXPARALLEL <= pin ) {
     pin = 1
@@ -4377,12 +4431,19 @@ function next_pin() {
   gr = $11
   md = $12
   pt = $14
+  ol = $16
   gsub( TRIPLETNREGEX, NLINE, pt )
+  gsub( TRIPLETNREGEX, NLINE, ol )
   gsub( TRIPLETTREGEX, TAB, pt )
+  gsub( TRIPLETTREGEX, TAB, ol )
+  if ( "l" == $3 ) {
+    gsub( TRIPLETSREGEX, SLASH, ol )
+  }
   ptScp = pt
   gsub( QUOTEREGEX, QUOTEESC, us )
   gsub( QUOTEREGEX, QUOTEESC, gr )
   gsub( QUOTEREGEX, QUOTEESC, pt )
+  gsub( QUOTEREGEX, QUOTEESC, ol )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", ptScp )
   u = "'" us "'"
   g = "'" gr "'"
@@ -4407,21 +4468,37 @@ function next_pin() {
     copy_file()
     apply_attr()
     next_pin()
-  } else if ( $2 ~ /^ATTR/ ) {
+  } else if ( $2 ~ /^SLINK/ ) {
     if ( $2 ~ /u/ ) {
-      print "${CHOWN" pin "} " u " " b > f623
+      print "${UNLINK" pin "} " b > f623
     }
-    if ( $2 ~ /g/ ) {
-      print "${CHGRP" pin "} " g " " b > f623
-    }
-    if ( $2 ~ /m/ ) {
-      print "${CHMOD" pin "} " m " " b > f623
-    }
-    if ( $2 ~ /T$/ ) {
-      if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
-        print "${STOUCH" pin "} @" $5 " " b > f623
-      } else {
-        print "${TOUCH" pin "} " s " " b > f622
+    print "${LNSYMB" pin "} '" ol "' " b > f623
+    apply_attr_lnsymb()
+    next_pin()
+  } else if ( $2 ~ /^ATTR/ ) {
+    if ( "l" == $3 ) {
+      if ( $2 ~ /u/ ) {
+        print "${CHOWN_LNSYMB" pin "} " u " " b > f623
+      }
+      if ( $2 ~ /g/ ) {
+        print "${CHGRP_LNSYMB" pin "} " g " " b > f623
+      }
+    } else {
+      if ( $2 ~ /u/ ) {
+        print "${CHOWN" pin "} " u " " b > f623
+      }
+      if ( $2 ~ /g/ ) {
+        print "${CHGRP" pin "} " g " " b > f623
+      }
+      if ( $2 ~ /m/ ) {
+        print "${CHMOD" pin "} " m " " b > f623
+      }
+      if ( $2 ~ /T$/ ) {
+        if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
+          print "${STOUCH" pin "} @" $5 " " b > f623
+        } else {
+          print "${TOUCH" pin "} " s " " b > f622
+        }
       }
     }
     next_pin()
@@ -4455,6 +4532,7 @@ ${awk} -f "${f420}"                              \
        -v pUser=${pUser}                         \
        -v pGroup=${pGroup}                       \
        -v pMode=${pMode}                         \
+       -v syncSLinks=${syncSLinks}               \
        -v no621Hdr=${no621Hdr}                   \
        -v no622Hdr=${no622Hdr}                   \
        -v no623Hdr=${no623Hdr}                   \
@@ -4535,7 +4613,6 @@ BEGIN {
     }
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
       print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f632
-      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f633
     } else {
       if ( 1 == extraTouch ) {
         print "CP" ONE_TO_MAXPARALLEL "='cp'" > f632
@@ -4553,6 +4630,9 @@ BEGIN {
   if ( 0 == no633Hdr ) {
     BIN_BASH > f633
     print "sourceDir='" sourceDir "'" > f633
+    if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
+      print "STOUCH" ONE_TO_MAXPARALLEL "='touch -m -d'" > f633
+    }
     if ( 1 == pRevUser ) {
       print "CHOWN" ONE_TO_MAXPARALLEL "='chown'" > f633
     }
@@ -4759,6 +4839,7 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
          -v pUser=${pUser}                         \
          -v pGroup=${pGroup}                       \
          -v pMode=${pMode}                         \
+         -v syncSLinks=0                           \
          -v no621Hdr=${no651Hdr}                   \
          -v no622Hdr=${no652Hdr}                   \
          -v no623Hdr=${no653Hdr}                   \
@@ -5052,13 +5133,19 @@ fi
 
 if [ ${remoteSource} -eq 1 ]; then
 
-  progress_scp_meta '>'
+  if [ ${#copyToRemoteSource[@]} -gt 0 ]; then
 
-  scp ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
+    progress_scp_meta '>'
 
-  ssh ${sshOptions} "${sourceUserHost}" "rm -f ${removeFromRemoteSource}"
+    scp ${scpMetaOpt} "${copyToRemoteSource[@]}" "${sourceUserHost}:${metaDirTempScp}"
 
-  progress_scp_meta '>'
+    progress_scp_meta '>'
+
+  fi
+
+  if [ '' != "${removeFromRemoteSource}" ]; then
+    ssh ${sshOptions} "${sourceUserHost}" "rm -f ${removeFromRemoteSource}"
+  fi
 
 elif [ ${remoteBackup} -eq 1 ]; then
 
@@ -5066,9 +5153,11 @@ elif [ ${remoteBackup} -eq 1 ]; then
 
   scp ${scpMetaOpt} "${copyToRemoteBackup[@]}" "${backupUserHost}:${metaDirScp}"
 
-  ssh ${sshOptions} "${backupUserHost}" "rm -f ${removeFromRemoteBackup}"
-
   progress_scp_meta '>'
+
+  if [ '' != "${removeFromRemoteBackup}" ]; then
+    ssh ${sshOptions} "${backupUserHost}" "rm -f ${removeFromRemoteBackup}"
+  fi
 
 fi
 
