@@ -100,9 +100,9 @@ Exec2:  copy files/directories to &lt;backupDir&gt; which exist only in &lt;sour
           <b>--noUnlink</b> option, see below)
 <b>unl.UP.?</b>  unlink file in &lt;backupDir&gt; + <b>UPDATE.?</b> (can be switched off via the
           <b>--noUnlink</b> option, see below)
-SLINK.n   create new symbolic link in &lt;backupDir&gt; (if synchronization of
+<b>SLINK.n</b>   create new symbolic link in &lt;backupDir&gt; (if synchronization of
           symbolic links is activated via the <b>--syncSLinks</b> option)
-SLINK.u   update (= unlink+create) a symbolic link in &lt;backupDir&gt; (if
+<b>SLINK.u</b>   update (= unlink+create) a symbolic link in &lt;backupDir&gt; (if
           synchronization of symbolic links is activated via the
           <b>--syncSLinks</b> option)
 <b>ATTR:ugmT</b> update only attributes in &lt;backupDir&gt; (u=user ownership,
@@ -221,7 +221,8 @@ symbolic links stay as symbolic links. See section Following Symbolic Links for
 details. Now comes the second dimension: What to do with the symbolic links that
 stay as symbolic links: They are always kept in the metadata and Zaloha prepares
 a restore script for them (file 820). Additionally, if the option <b>--syncSLinks</b>
-is given, Zaloha will indeed synchronize them to &lt;backupDir&gt;.
+is given, Zaloha will indeed synchronize them to &lt;backupDir&gt; (action codes
+<b>SLINK.n</b> or <b>SLINK.u</b>).
 
 Zaloha does not synchronize other types of objects in &lt;sourceDir&gt; (named pipes,
 sockets, special devices, etc). These objects are considered to be part of the

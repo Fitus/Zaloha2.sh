@@ -3,7 +3,7 @@
 Zaloha2 is a small and simple directory synchronizer:
 
  * Zaloha2 is a BASH script that uses only FIND, SORT and AWK.
- * All you need is the Zaloha2.sh file (contains ~115 kB of program code and ~99 kB of documentation).
+ * All you need is the Zaloha2.sh file (contains ~116 kB of program code and ~99 kB of documentation).
  * No compilation, installation and configuration is required.
  * Cyber-secure: No new binary code, no new open ports, no talking to any
    "uncles" on the Internet, easily reviewable.
@@ -62,7 +62,7 @@ The integrity of Zaloha2.sh can be verified by its SHA-256 hash. The hash of cur
 
 ```bash
 sha256sum Zaloha2.sh
-d0471a3d60d3788c966b418b01f6e1b2d21afdb5fcbb8a69903d1bd188be2978  Zaloha2.sh
+c49fccf7d75b4dd7a4a791bee702c227e116745587fb11fca14f3849959ffc9e  Zaloha2.sh
 ```
 
 ## Usage Examples
@@ -384,6 +384,7 @@ CSV data model of **16&nbsp;columns** | Extended to **17&nbsp;columns** to accom
 &nbsp; | New check for falsely detected hardlinks: SHA-256 hash differs
 Option **--hLinks** | Renamed to **--detectHLinksS** (more descriptive option name)
 Option **--touch** | Renamed to **--extraTouch** (more descriptive option name)
+&nbsp; | New option **--syncSLinks** for synchronization of symbolic links
 Option **--noExec1Hdr** | Renamed to **--no610Hdr**
 Option **--noExec2Hdr** | Replaced by finer-grained options **--no621Hdr**, **--no622Hdr** and **--no623Hdr**
 Option **--noExec3Hdr** | Replaced by finer-grained options **--no631Hdr**, **--no632Hdr** and **--no633Hdr**
@@ -395,7 +396,7 @@ Option **--noExec5Hdr** | Replaced by finer-grained options **--no651Hdr**, **--
 &nbsp; | More tolerant check of modification times of files (zero or even negative modification times are possible)
 &nbsp; | More tolerant check of target paths of symbolic links (empty target paths are possible on some OSes)
 &nbsp; | Minor code improvements and optimizations + improved documentation
-Code size 76 kB | Code size 115 kB
+Code size 76 kB | Code size 116 kB
 Docu size 78 kB | Docu size 99 kB
 
 ## License

@@ -248,7 +248,8 @@ symbolic links stay as symbolic links. See section Following Symbolic Links for
 details. Now comes the second dimension: What to do with the symbolic links that
 stay as symbolic links: They are always kept in the metadata and Zaloha prepares
 a restore script for them (file 820). Additionally, if the option "--syncSLinks"
-is given, Zaloha will indeed synchronize them to <backupDir>.
+is given, Zaloha will indeed synchronize them to <backupDir> (action codes
+SLINK.n or SLINK.u).
 
 Zaloha does not synchronize other types of objects in <sourceDir> (named pipes,
 sockets, special devices, etc). These objects are considered to be part of the
@@ -1926,11 +1927,18 @@ trap 'error_exit "Error on line ${LINENO}"' ERR
 pidBackgroundJob=
 
 function cleanup_background_job {
+  set +e
+  trap - ERR
   if [ '' != "${pidBackgroundJob}" ]; then
-    echo "Zaloha2.sh: Killing background job PGID: ${pidBackgroundJob}"
-    2> /dev/null kill -SIGTERM -- "-${pidBackgroundJob}" || :
-    pidBackgroundJob=
+    tmpVal="$(jobs -r)"
+    if [ '' != "${tmpVal}" ]; then
+      echo "Zaloha2.sh: Killing background job PGID: ${pidBackgroundJob}"
+      kill -SIGTERM -- "-${pidBackgroundJob}"
+    else
+      echo "Zaloha2.sh: Background job PGID: ${pidBackgroundJob} does not exist anymore"
+    fi
   fi
+  pidBackgroundJob=
 }
 
 trap 'cleanup_background_job' EXIT
@@ -2919,19 +2927,19 @@ BEGIN {
   }
   if ( 1 == sha256 ) {
     cmd = cmd " '(' -type f -printf '"
-    cmd = cmd TRIPLET                           # SHA-256 column 1: leading field
-    cmd = cmd "\\tSHA-256"                      # SHA-256 column 2: SHA-256 constant
-    cmd = cmd "\\t' -exec sha256sum '{}' ';'"   # SHA-256 column 3: the SHA-256 hash + space + file name + newline
-    cmd = cmd " -printf '\\t" TRIPLET           # SHA-256 column 4: terminator field
-    cmd = cmd "\\n' -false ')' -o"
+    cmd = cmd TRIPLET                                    # SHA-256 column 1: leading field
+    cmd = cmd "\\tSHA-256"                               # SHA-256 column 2: SHA-256 constant
+    cmd = cmd "\\t' '(' -exec sha256sum '{}' ';'"        # SHA-256 column 3: the SHA-256 hash + space + file name + newline
+    cmd = cmd " -printf '\\t" TRIPLET "' -o -true ')'"   # SHA-256 column 4: terminator field
+    cmd = cmd " -printf '\\n' -false ')' -o"
   }
   if ( 1 == readSLinks ) {
     cmd = cmd " '(' -lname '*" TRIPLET "*' -printf '"
-    cmd = cmd TRIPLET                                            # SLINK-TARGET column 1: leading field
-    cmd = cmd "\\tSLINK-TARGET"                                  # SLINK-TARGET column 2: SLINK-TARGET constant
-    cmd = cmd "\\t' -exec bash '" metaDir f205Base "' '{}' ';'"  # SLINK-TARGET column 3: escaped target path of symbolic link
-    cmd = cmd " -printf '\\t" TRIPLET                            # SLINK-TARGET column 4: terminator field
-    cmd = cmd "\\n' -false ')' -o"
+    cmd = cmd TRIPLET                                                 # SLINK-TARGET column 1: leading field
+    cmd = cmd "\\tSLINK-TARGET"                                       # SLINK-TARGET column 2: SLINK-TARGET constant
+    cmd = cmd "\\t' '(' -exec bash '" metaDir f205Base "' '{}' ';'"   # SLINK-TARGET column 3: escaped target path of symbolic link
+    cmd = cmd " -printf '\\t" TRIPLET "' -o -true ')'"                # SLINK-TARGET column 4: terminator field
+    cmd = cmd " -printf '\\n' -false ')' -o"
   }
   cmd = cmd " -printf '"
   cmd = cmd TRIPLET                  # column  1: leading field
@@ -3033,7 +3041,7 @@ copyToRemoteBackup+=( "${f205}" "${f220}" )
 
 stop_progress
 
-# copy the prepared FIND shellscripts and other metadata to the remote side
+# Copy the prepared FIND shellscripts and other metadata to the remote side
 
 if [ ${remoteSource} -eq 1 ]; then
 
@@ -3085,7 +3093,8 @@ else
 
 fi
 
-# In case of --findParallel, run the local scan now as background job
+# In case of --findParallel, run the local scan now as background job.
+# Use "set -m" to place the background job in own process group.
 
 if [ ${findParallel} -eq 1 ]; then
 
@@ -3163,7 +3172,7 @@ else
 
 fi
 
-# copy the obtained CSV metadata back from the remote side
+# Copy the obtained CSV metadata back from the remote side
 
 if [ '' != "${copyFromRemoteSource}" ]; then
 
@@ -3189,11 +3198,11 @@ if [ ${findParallel} -eq 1 ]; then
 
   wait ${pidBackgroundJob} && tmpVal=$? || tmpVal=$?
 
+  pidBackgroundJob=
+
   if [ ${tmpVal} -ne 0 ]; then
     error_exit "The local FIND scan terminated with unexpected exit status ${tmpVal}"
   fi
-
-  pidBackgroundJob=
 
 fi
 
@@ -3225,7 +3234,7 @@ function add_fragment_to_field( fragment, verbatim ) {
   #### remainder of SHA-256 record in progress
   if ( 1 == spr ) {
     if ( TRIPLET == $1 ) {
-      error_exit( "AWK cleaner in unexpected state at begin of new record (2)" )
+      error_exit( "AWK cleaner in unexpected state at begin of new record (2): presumably sha256sum has failed" )
     } else if ( TRIPLET == $NF ) {
       spr = 0
     }
@@ -3233,6 +3242,9 @@ function add_fragment_to_field( fragment, verbatim ) {
   } else if (( 1 == fin ) && ( TRIPLET == $1 ) && ( "SHA-256" == $2 )) {
     if ( "" != sha ) {
       error_exit( "Unprocessed SHA-256 hash while a new SHA-256 record encountered" )
+    }
+    if ( "" != tsl ) {
+      error_exit( "Unprocessed target path of symbolic link while an SHA-256 record encountered" )
     }
     if ( BSLASH == substr( $3, 1, 1 )) {
       sha = substr( $3, 2, 64 )
@@ -3244,11 +3256,14 @@ function add_fragment_to_field( fragment, verbatim ) {
     }
   #### the SLINK-TARGET record
   } else if (( 1 == fin ) && ( TRIPLET == $1 ) && ( "SLINK-TARGET" == $2 )) {
+    if ( "" != sha ) {
+      error_exit( "Unprocessed SHA-256 hash while an SLINK-TARGET record encountered" )
+    }
     if ( "" != tsl ) {
       error_exit( "Unprocessed target path of symbolic link while a new SLINK-TARGET record encountered" )
     }
     if (( 4 != NF ) || ( TRIPLET != $NF )) {
-      error_exit( "Unexpected structure of SLINK-TARGET record" )
+      error_exit( "Unexpected structure of SLINK-TARGET record: presumably read of symbolic link has failed" )
     }
     tsl = $3
   #### regular record: the unproblematic case performance-optimized
@@ -5129,11 +5144,11 @@ fi
 
 ###########################################################
 
-# copy the prepared Exec shellscripts and other metadata to the remote side
+# Copy the prepared Exec shellscripts and other metadata to the remote side
 
 if [ ${remoteSource} -eq 1 ]; then
 
-  if [ ${#copyToRemoteSource[@]} -gt 0 ]; then
+  if [ ${#copyToRemoteSource[@]} -ne 0 ]; then
 
     progress_scp_meta '>'
 
@@ -5310,7 +5325,7 @@ fi
 
 exec 4>&-
 
-# touch the file 999_mark_executed
+# Touch the file 999_mark_executed
 
 if [ 'Y' == "${lastReply}" ]; then
   if [ ${remoteBackup} -eq 1 ]; then
