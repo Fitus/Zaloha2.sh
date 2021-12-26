@@ -550,6 +550,8 @@ to backslashes inside.
 <b>--pMode</b>             actions. Additionally, if these attributes differ on files
                     and directories for which no action is prepared, synchronize
                     the differing attributes (action codes <b>ATTR:ugm</b>).
+                    The options <b>--pUser</b> and <b>--pGroup</b> also apply to symbolic
+                    links if their synchronization is active (<b>--syncSLinks</b>).
 
 <b>--pRevUser</b>      ... preserve user ownerships, group ownerships and/or modes
 <b>--pRevGroup</b>         (permission bits) during <b>REV.MKDI</b>, <b>REV.NEW</b> and <b>REV.UP</b>

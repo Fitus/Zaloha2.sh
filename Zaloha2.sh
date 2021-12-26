@@ -576,6 +576,8 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --pMode             actions. Additionally, if these attributes differ on files
                     and directories for which no action is prepared, synchronize
                     the differing attributes (action codes ATTR:ugm).
+                    The options "--pUser" and "--pGroup" also apply to symbolic
+                    links if their synchronization is active ("--syncSLinks").
 
 --pRevUser      ... preserve user ownerships, group ownerships and/or modes
 --pRevGroup         (permission bits) during REV.MKDI, REV.NEW and REV.UP
@@ -2979,7 +2981,8 @@ SLASH='/'
 TRIPLETT='///t'
 TRIPLETN='///n'
 TRIPLETS='///s'
-tmpVal="$(readlink "${1}")"
+tmpVal="$(readlink -n "${1}" && printf M)"
+tmpVal="${tmpVal%M}"
 tmpVal="${tmpVal//${SLASH}/${TRIPLETS}}"
 tmpVal="${tmpVal//${TAB}/${TRIPLETT}}"
 echo -n "${tmpVal//${NLINE}/${TRIPLETN}}"
