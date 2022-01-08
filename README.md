@@ -62,7 +62,7 @@ The integrity of Zaloha2.sh can be verified by its SHA-256 hash. The hash of cur
 
 ```bash
 sha256sum Zaloha2.sh
-bffb8fb027874ba145ec961320b3c542d211d5e5f8239a8a827d3ff12deb6216  Zaloha2.sh
+254ad60cb847d11725abede019a1f9d672271443eadadc558356c60d14c7ee71  Zaloha2.sh
 ```
 
 ## Usage Examples

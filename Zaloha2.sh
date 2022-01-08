@@ -1920,7 +1920,7 @@ set -e
 set -o pipefail
 
 function error_exit {
-  echo "Zaloha2.sh: ${1}" >&2
+  printf 'Zaloha2.sh: %s\n' "${1}" >&2
   exit 1
 }
 
@@ -1934,13 +1934,13 @@ function cleanup_background_job {
   if [ '' != "${pidBackgroundJob}" ]; then
     tmpVal="$(jobs -r)"
     if [ '' != "${tmpVal}" ]; then
-      echo "Zaloha2.sh: Killing background job PGID: ${pidBackgroundJob}"
+      printf 'Zaloha2.sh: Killing background job PGID: %s\n' "${pidBackgroundJob}"
       kill -SIGTERM -- "-${pidBackgroundJob}"
     else
-      echo "Zaloha2.sh: Background job PGID: ${pidBackgroundJob} does not exist anymore"
+      printf 'Zaloha2.sh: Background job PGID: %s does not exist anymore\n' "${pidBackgroundJob}"
     fi
+    pidBackgroundJob=
   fi
-  pidBackgroundJob=
 }
 
 trap 'cleanup_background_job' EXIT
@@ -1953,14 +1953,14 @@ function opt_dupli_check {
 
 function start_progress {
   if [ ${noProgress} -eq 0 ]; then
-    echo -n "    ${1} ${DOTS60:1:$(( 53 - ${#1} ))}"
+    printf '    %s %s' "${1}" "${DOTS60:1:$(( 53 - ${#1} ))}"
     progressCurrColNo=58
   fi
 }
 
 function start_progress_by_chars {
   if [ ${noProgress} -eq 0 ]; then
-    echo -n "    ${1} "
+    printf '    %s ' "${1}"
     (( progressCurrColNo = ${#1} + 5 ))
   fi
 }
@@ -1968,10 +1968,10 @@ function start_progress_by_chars {
 function progress_char {
   if [ ${noProgress} -eq 0 ]; then
     if [ ${progressCurrColNo} -ge 80 ]; then
-      echo -ne '\n    '
+      printf '\n    '
       progressCurrColNo=4
     fi
-    echo -n "${1}"
+    printf '%s' "${1}"
     (( progressCurrColNo ++ ))
   fi
 }
@@ -1979,19 +1979,19 @@ function progress_char {
 function stop_progress {
   if [ ${noProgress} -eq 0 ]; then
     if [ ${progressCurrColNo} -gt 58 ]; then
-      echo -ne '\n    '
+      printf '\n    '
       progressCurrColNo=4
     fi
-    echo "${BLANKS60:1:$(( 58 - ${progressCurrColNo} ))} done."
+    printf '%s done.\n' "${BLANKS60:1:$(( 58 - ${progressCurrColNo} ))}"
   fi
 }
 
 function progress_scp_meta {
   if [ ${noProgress} -eq 0 ]; then
     if [ '>' == "${1}" ]; then
-      echo "${DASH20}${1}"
+      printf '%s%s\n' "${DASH20}" "${1}"
     else
-      echo "${1}${DASH20}"
+      printf '%s%s\n' "${1}" "${DASH20}"
     fi
   fi
 }
@@ -2009,10 +2009,6 @@ function optim_csv_after_use {
   if [ ${optimCSV} -eq 1 ]; then
     rm -f "${@}"
   fi
-}
-
-function echo_args_with_ifs {
-  echo "${*}"
 }
 
 TAB=$'\t'
@@ -2044,6 +2040,7 @@ printf -v BLANKS20 '%20s' ' '
 DASH20="${BLANKS20// /-}"
 printf -v BLANKS60 '%60s' ' '
 DOTS60="${BLANKS60// /.}"
+RECFMT='%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n'
 
 ###########################################################
 
@@ -2981,18 +2978,19 @@ SLASH='/'
 TRIPLETT='///t'
 TRIPLETN='///n'
 TRIPLETS='///s'
-tmpVal="$(readlink -n "${1}" && printf M)"
-tmpVal="${tmpVal%M}"
+tmpVal="$(readlink -n "${1}" && printf 'M')"
+tmpVal="${tmpVal%'M'}"
 tmpVal="${tmpVal//${SLASH}/${TRIPLETS}}"
 tmpVal="${tmpVal//${TAB}/${TRIPLETT}}"
-echo -n "${tmpVal//${NLINE}/${TRIPLETN}}"
+printf '%s' "${tmpVal//${NLINE}/${TRIPLETN}}"
 # end
 READSLINK
 
 if [ ${noProgress} -eq 0 ]; then
-  echo
-  echo "ANALYZING ${sourceUserHostDirTerm} AND ${backupUserHostDirTerm}"
-  echo '==========================================='
+
+  printf '\nANALYZING %s AND %s\n' "${sourceUserHostDirTerm}" "${backupUserHostDirTerm}"
+  printf '===========================================\n'
+
 fi
 
 start_progress 'Parsing'
@@ -4179,8 +4177,15 @@ if [ ${byteByByte} -eq 1 ]; then
   exec {fd550}> "${f550}"
   exec {fd555}> "${f555}"
 
-  while IFS="${FSTAB}" read -r -a tmpRec   # split record to array (hint: first field has index 0)
+  while IFS= read -r tmpVal       # Note: read -r -a would treat consecutive tab separators as one: hence this approach
   do
+    tmpRec=()
+    for i in {1..16}; do
+      tmpRec+=( "${tmpVal%%${FSTAB}*}" )
+      tmpVal="${tmpVal#*${FSTAB}}"
+    done
+    tmpRec+=( "${tmpVal}" )
+
     if [ "${tmpRec[2]}" == 'f' ]; then
       if [ "${tmpRec[1]}" == 'OK' ] || [ "${tmpRec[1]:0:4}" == 'ATTR' ]; then
 
@@ -4203,14 +4208,14 @@ if [ ${byteByByte} -eq 1 ]; then
           else
             tmpRec[1]='UPDATE.b'
           fi
-          IFS="${FSTAB}" echo_args_with_ifs "${tmpRec[@]}" >&${fd550}
+          printf "${RECFMT}" "${tmpRec[@]}" >&${fd550}
           progress_char '#'
 
         else
           error_exit 'command CMP failed while comparing files byte by byte'
         fi
 
-        IFS="${FSTAB}" echo_args_with_ifs "${tmpRec[@]}" >&${fd555}
+        printf "${RECFMT}" "${tmpRec[@]}" >&${fd555}
       fi
     fi
   done < "${f505}"
@@ -4592,7 +4597,7 @@ BEGIN {
     print "sourceDir='" sourceDir "'" > f631
     print "function rev_exists_err {" > f631
     XTRACE_OFF > f631
-    print "  echo \"Zaloha: Object exists in <sourceDir> (masked by <findSourceOps> ?): ${1}\" >&2" > f631
+    print "  printf 'Zaloha: Object exists in <sourceDir> (masked by <findSourceOps> ?): %s\\n' \"${1}\" >&2" > f631
     if ( 0 == noExec ) {
       print "  exit 1" > f631
     }
@@ -5190,13 +5195,16 @@ fi
 lastReply='Y'
 
 function ask_user {
-  echo "${1}"
+  printf '\n%s\n' "${1}"
   if [ 'Y' == "${lastReply}" ]; then
     read -p '[Y/y=Yes, S/s=do nothing and show further, other=do nothing and abort]: ' tmpVal
     tmpVal="${tmpVal/y/Y}"
     tmpVal="${tmpVal/s/S}"
     lastReply="${tmpVal}"
     tmpVal="${tmpVal/Y/S}"
+    if [ 'Y' == "${lastReply}" ]; then
+      printf '\n'
+    fi
   else
     read -p '[S/s=do nothing and show further, other/Y/y=do nothing and abort]: ' tmpVal
     tmpVal="${tmpVal/s/S}"
@@ -5210,20 +5218,17 @@ function ask_user {
 exec 4>&1
 
 if [ -s "${f510}" ]; then
-  echo
-  echo "UNAVOIDABLE REMOVALS FROM ${backupUserHostDirTerm}"
-  echo '==========================================='
+
+  printf '\nUNAVOIDABLE REMOVALS FROM %s\n' "${backupUserHostDirTerm}"
+  printf '===========================================\n'
 
   ${awk} -f "${f104}" -v color=${color} "${f510}"
 
   if [ ${noRemove} -eq 1 ]; then
-    echo
-    echo 'WARNING: Unavoidable removals prepared regardless of the --noRemove option'
+    printf '\nWARNING: Unavoidable removals prepared regardless of the --noRemove option\n'
   fi
-  echo
   ask_user "Execute above listed removals from ${backupUserHostDirTerm} ?"
   if [ 'Y' == "${lastReply}" ]; then
-    echo
     if [ ${remoteBackup} -eq 1 ]; then
       ssh ${sshOptions} "${backupUserHost}" "bash ${f610RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
     else
@@ -5232,17 +5237,14 @@ if [ -s "${f510}" ]; then
   fi
 fi
 
-echo
-echo "TO BE COPIED TO ${backupUserHostDirTerm}"
-echo '==========================================='
+printf '\nTO BE COPIED TO %s\n' "${backupUserHostDirTerm}"
+printf '===========================================\n'
 
 ${awk} -f "${f104}" -v color=${color} "${f520}"
 
 if [ -s "${f520}" ]; then
-  echo
   ask_user "Execute above listed copies to ${backupUserHostDirTerm} ?"
   if [ 'Y' == "${lastReply}" ]; then
-    echo
     if [ ${remoteBackup} -eq 1 ]; then
       ssh ${sshOptions} "${backupUserHost}" "bash ${f621RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       3>&1 1>&4 bash "${f622}"                                            | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -5256,17 +5258,15 @@ if [ -s "${f520}" ]; then
 fi
 
 if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
-  echo
-  echo "TO BE REVERSE-COPIED TO ${sourceUserHostDirTerm}"
-  echo '==========================================='
+
+  printf '\nTO BE REVERSE-COPIED TO %s\n' "${sourceUserHostDirTerm}"
+  printf '===========================================\n'
 
   ${awk} -f "${f104}" -v color=${color} "${f530}"
 
   if [ -s "${f530}" ]; then
-    echo
     ask_user "Execute above listed reverse-copies to ${sourceUserHostDirTerm} ?"
     if [ 'Y' == "${lastReply}" ]; then
-      echo
       if [ ${remoteSource} -eq 1 ]; then
         ssh ${sshOptions} "${sourceUserHost}" "bash ${f631RemoteSourceScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
         3>&1 1>&4 bash "${f632}"                                            | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -5281,17 +5281,15 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 fi
 
 if [ ${noRemove} -eq 0 ]; then
-  echo
-  echo "TO BE REMOVED FROM ${backupUserHostDirTerm}"
-  echo '==========================================='
+
+  printf '\nTO BE REMOVED FROM %s\n' "${backupUserHostDirTerm}"
+  printf '===========================================\n'
 
   ${awk} -f "${f104}" -v color=${color} "${f540}"
 
   if [ -s "${f540}" ]; then
-    echo
     ask_user "Execute above listed removals from ${backupUserHostDirTerm} ?"
     if [ 'Y' == "${lastReply}" ]; then
-      echo
       if [ ${remoteBackup} -eq 1 ]; then
         ssh ${sshOptions} "${backupUserHost}" "bash ${f640RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
       else
@@ -5302,17 +5300,15 @@ if [ ${noRemove} -eq 0 ]; then
 fi
 
 if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
-  echo
-  echo "FROM COMPARING CONTENTS OF FILES: TO BE COPIED TO ${backupUserHostDirTerm}"
-  echo '==========================================='
+
+  printf '\nFROM COMPARING CONTENTS OF FILES: TO BE COPIED TO %s\n' "${backupUserHostDirTerm}"
+  printf '===========================================\n'
 
   ${awk} -f "${f104}" -v color=${color} "${f550}"
 
   if [ -s "${f550}" ]; then
-    echo
     ask_user "Execute above listed copies to ${backupUserHostDirTerm} ?"
     if [ 'Y' == "${lastReply}" ]; then
-      echo
       if [ ${remoteBackup} -eq 1 ]; then
         ssh ${sshOptions} "${backupUserHost}" "bash ${f651RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
         3>&1 1>&4 bash "${f652}"                                            | ${awkNoBuf} -f "${f102}" -v color=${color}
@@ -5337,8 +5333,7 @@ if [ 'Y' == "${lastReply}" ]; then
     bash "${f690}"
   fi
 else
-  echo
-  echo "Warning: File ${f999Base} was not touched, because not all steps were executed"
+  printf '\nWarning: File %s was not touched, because not all steps were executed\n' "${f999Base}"
 fi
 
 ###########################################################
