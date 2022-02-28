@@ -386,6 +386,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v remoteRestore=&lt;0 or 1&gt;               \
       -v restoreUserHost="&lt;restoreUserHost&gt;"  \
       -v scpExecOpt="&lt;scpExecOpt&gt;"            \
+      -v cpRestoreOpt="&lt;cpRestoreOpt&gt;"        \
       -v f800="&lt;script 800 to be created&gt;"    \
       -v f810="&lt;script 810 to be created&gt;"    \
       -v f820="&lt;script 820 to be created&gt;"    \
@@ -544,6 +545,21 @@ to backslashes inside.
                     target file. On the contrary, cp keeps atime of the target
                     file intact and touch -m just sets the correct mtime on the
                     target file.
+
+<b>--cpOptions</b>=&lt;cpOptions&gt; can be used to override the default command-line options
+                    for the CP commands used in the Local Mode (which are
+                    "--preserve=timestamps" (or none if option <b>--extraTouch</b>
+                    is given)).
+
+                    This option can be used if the CP command needs a different
+                    option(s) to preserve timestamps during copying, or e.g. to
+                    instruct CP to preserve extended attributes during copying
+                    as well, or the like:
+
+                          --cpOptions='--preserve=timestamps,xattr'
+
+<b>--cpRestoreOpt</b>=&lt;cpRestoreOpt&gt; can be used to override &lt;cpOptions&gt; specially for
+                    the CP commands used in the restore scripts.
 
 <b>--pUser</b>         ... preserve user ownerships, group ownerships and/or modes
 <b>--pGroup</b>            (permission bits) during <b>MKDIR</b>, <b>NEW</b>, <b>UPDATE</b> and <b>unl.UP</b>

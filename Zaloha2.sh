@@ -413,6 +413,7 @@ manually by running the AWK program 700 on the CSV metadata file 505:
       -v remoteRestore=<0 or 1>               \
       -v restoreUserHost="<restoreUserHost>"  \
       -v scpExecOpt="<scpExecOpt>"            \
+      -v cpRestoreOpt="<cpRestoreOpt>"        \
       -v f800="<script 800 to be created>"    \
       -v f810="<script 810 to be created>"    \
       -v f820="<script 820 to be created>"    \
@@ -570,6 +571,21 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
                     target file. On the contrary, cp keeps atime of the target
                     file intact and touch -m just sets the correct mtime on the
                     target file.
+
+--cpOptions=<cpOptions> can be used to override the default command-line options
+                    for the CP commands used in the Local Mode (which are
+                    "--preserve=timestamps" (or none if option "--extraTouch"
+                    is given)).
+
+                    This option can be used if the CP command needs a different
+                    option(s) to preserve timestamps during copying, or e.g. to
+                    instruct CP to preserve extended attributes during copying
+                    as well, or the like:
+
+                          --cpOptions='--preserve=timestamps,xattr'
+
+--cpRestoreOpt=<cpRestoreOpt> can be used to override <cpOptions> specially for
+                    the CP commands used in the restore scripts.
 
 --pUser         ... preserve user ownerships, group ownerships and/or modes
 --pGroup            (permission bits) during MKDIR, NEW, UPDATE and unl.UP
@@ -2073,6 +2089,10 @@ byteByByte=0
 sha256=0
 noUnlink=0
 extraTouch=0
+cpOptions=
+cpOptionsPassed=0
+cpRestoreOpt=
+cpRestoreOptPassed=0
 pUser=0
 pGroup=0
 pMode=0
@@ -2143,6 +2163,8 @@ do
     --sha256)            opt_dupli_check ${sha256} "${tmpVal}";         sha256=1 ;;
     --noUnlink)          opt_dupli_check ${noUnlink} "${tmpVal}";       noUnlink=1 ;;
     --extraTouch)        opt_dupli_check ${extraTouch} "${tmpVal}";     extraTouch=1 ;;
+    --cpOptions=*)       opt_dupli_check ${cpOptionsPassed} "${tmpVal%%=*}";     cpOptions="${tmpVal#*=}";     cpOptionsPassed=1 ;;
+    --cpRestoreOpt=*)    opt_dupli_check ${cpRestoreOptPassed} "${tmpVal%%=*}";  cpRestoreOpt="${tmpVal#*=}";  cpRestoreOptPassed=1 ;;
     --pUser)             opt_dupli_check ${pUser} "${tmpVal}";          pUser=1 ;;
     --pGroup)            opt_dupli_check ${pGroup} "${tmpVal}";         pGroup=1 ;;
     --pMode)             opt_dupli_check ${pMode} "${tmpVal}";          pMode=1 ;;
@@ -2205,6 +2227,12 @@ if [ ${remoteSource} -eq 1 ] || [ ${remoteBackup} -eq 1 ]; then
   if [ ${extraTouch} -eq 1 ]; then
     error_exit 'Option --extraTouch may not be used in Remote Source or Remote Backup Mode'
   fi
+  if [ ${cpOptionsPassed} -eq 1 ]; then
+    error_exit 'Option --cpOptions may not be used in Remote Source or Remote Backup Mode'
+  fi
+  if [ ${cpRestoreOptPassed} -eq 1 ]; then
+    error_exit 'Option --cpRestoreOpt may not be used in Remote Source or Remote Backup Mode'
+  fi
 else
   if [ ${sshOptionsPassed} -eq 1 ]; then
     error_exit 'Option --sshOptions may be used only in Remote Source or Remote Backup Mode'
@@ -2253,6 +2281,17 @@ if [ ${scpExecOptPassed} -eq 0 ]; then
   scpExecOpt="${scpOptions}"
 fi
 scpExecOptAwk="${scpExecOpt//${BSLASHPATTERN}/${TRIPLETB}}"
+
+cpExecOpt="${cpOptions}"
+if [ ${cpOptionsPassed} -eq 0 ] && [ ${extraTouch} -eq 0 ]; then
+  cpExecOpt='--preserve=timestamps'
+fi
+cpExecOptAwk="${cpExecOpt//${BSLASHPATTERN}/${TRIPLETB}}"
+
+if [ ${cpRestoreOptPassed} -eq 0 ]; then
+  cpRestoreOpt="${cpOptions}"
+fi
+cpRestoreOptAwk="${cpRestoreOpt//${BSLASHPATTERN}/${TRIPLETB}}"
 
 if [ ${mawk} -eq 1 ]; then
   awk='mawk'
@@ -2675,6 +2714,13 @@ ${TRIPLET}${FSTAB}byteByByte${FSTAB}${byteByByte}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}sha256${FSTAB}${sha256}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noUnlink${FSTAB}${noUnlink}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}extraTouch${FSTAB}${extraTouch}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}cpOptions${FSTAB}${cpOptions}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}cpOptionsPassed${FSTAB}${cpOptionsPassed}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}cpExecOpt${FSTAB}${cpExecOpt}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}cpExecOptAwk${FSTAB}${cpExecOptAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}cpRestoreOpt${FSTAB}${cpRestoreOpt}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}cpRestoreOptAwk${FSTAB}${cpRestoreOptAwk}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}cpRestoreOptPassed${FSTAB}${cpRestoreOptPassed}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}pUser${FSTAB}${pUser}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}pGroup${FSTAB}${pGroup}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}pMode${FSTAB}${pMode}${FSTAB}${TRIPLET}
@@ -4301,6 +4347,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, sourceUserHost )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
   gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
+  gsub( TRIPLETBREGEX, BSLASH, cpExecOpt )
   gsub( TRIPLETBREGEX, BSLASH, f621 )
   gsub( TRIPLETBREGEX, BSLASH, f622 )
   gsub( TRIPLETBREGEX, BSLASH, f623 )
@@ -4311,6 +4358,7 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, sourceUserHost )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, scpExecOpt )
+  gsub( QUOTEREGEX, QUOTEESC, cpExecOpt )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", sourceDirScp )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   if ( 0 == no621Hdr ) {
@@ -4350,11 +4398,7 @@ BEGIN {
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
       print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f622
     } else {
-      if ( 1 == extraTouch ) {
-        print "CP" ONE_TO_MAXPARALLEL "='cp'" > f622
-      } else {
-        print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'" > f622
-      }
+      print "CP" ONE_TO_MAXPARALLEL "='cp " cpExecOpt "'" > f622
       print "TOUCH" ONE_TO_MAXPARALLEL "='touch -m -r'" > f622
     }
     print "set -u" > f622
@@ -4552,6 +4596,7 @@ ${awk} -f "${f420}"                              \
        -v noExec=${noExec}                       \
        -v noUnlink=${noUnlink}                   \
        -v extraTouch=${extraTouch}               \
+       -v cpExecOpt=${cpExecOptAwk}              \
        -v pUser=${pUser}                         \
        -v pGroup=${pGroup}                       \
        -v pMode=${pMode}                         \
@@ -4580,6 +4625,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, sourceUserHost )
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
   gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
+  gsub( TRIPLETBREGEX, BSLASH, cpExecOpt )
   gsub( TRIPLETBREGEX, BSLASH, f631 )
   gsub( TRIPLETBREGEX, BSLASH, f632 )
   gsub( TRIPLETBREGEX, BSLASH, f633 )
@@ -4590,6 +4636,7 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, sourceUserHost )
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, scpExecOpt )
+  gsub( QUOTEREGEX, QUOTEESC, cpExecOpt )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", sourceDirScp )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   if ( 0 == no631Hdr ) {
@@ -4637,11 +4684,9 @@ BEGIN {
     if (( 1 == remoteSource ) || ( 1 == remoteBackup )) {
       print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f632
     } else {
+      print "CP" ONE_TO_MAXPARALLEL "='cp " cpExecOpt "'" > f632
       if ( 1 == extraTouch ) {
-        print "CP" ONE_TO_MAXPARALLEL "='cp'" > f632
         print "TOUCH" ONE_TO_MAXPARALLEL "='touch -m -r'" > f632
-      } else {
-        print "CP" ONE_TO_MAXPARALLEL "='cp --preserve=timestamps'" > f632
       }
     }
     print "set -u" > f632
@@ -4787,6 +4832,7 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
          -v scpExecOpt="${scpExecOptAwk}"          \
          -v noExec=${noExec}                       \
          -v extraTouch=${extraTouch}               \
+         -v cpExecOpt=${cpExecOptAwk}              \
          -v pRevUser=${pRevUser}                   \
          -v pRevGroup=${pRevGroup}                 \
          -v pRevMode=${pRevMode}                   \
@@ -4859,6 +4905,7 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
          -v noExec=${noExec}                       \
          -v noUnlink=${noUnlink}                   \
          -v extraTouch=${extraTouch}               \
+         -v cpExecOpt=${cpExecOptAwk}              \
          -v pUser=${pUser}                         \
          -v pGroup=${pGroup}                       \
          -v pMode=${pMode}                         \
@@ -4926,6 +4973,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, backupUserHost )
   gsub( TRIPLETBREGEX, BSLASH, restoreUserHost )
   gsub( TRIPLETBREGEX, BSLASH, scpExecOpt )
+  gsub( TRIPLETBREGEX, BSLASH, cpRestoreOpt )
   gsub( TRIPLETBREGEX, BSLASH, f800 )
   gsub( TRIPLETBREGEX, BSLASH, f810 )
   gsub( TRIPLETBREGEX, BSLASH, f820 )
@@ -4941,6 +4989,7 @@ BEGIN {
   gsub( QUOTEREGEX, QUOTEESC, backupUserHost )
   gsub( QUOTEREGEX, QUOTEESC, restoreUserHost )
   gsub( QUOTEREGEX, QUOTEESC, scpExecOpt )
+  gsub( QUOTEREGEX, QUOTEESC, cpRestoreOpt )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", backupDirScp )
   gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", restoreDirScp )
   if ( 0 == noR800Hdr ) {
@@ -4964,7 +5013,7 @@ BEGIN {
     if (( 1 == remoteBackup ) || ( 1 == remoteRestore )) {
       print "SCP" ONE_TO_MAXPARALLEL "='scp " scpExecOpt "'" > f810
     } else {
-      print "CP" ONE_TO_MAXPARALLEL "='cp'" > f810
+      print "CP" ONE_TO_MAXPARALLEL "='cp " cpRestoreOpt "'" > f810
     }
     print "set -u" > f810
   }
@@ -5119,6 +5168,7 @@ if [ ${noRestore} -eq 0 ]; then
          -v remoteRestore=${remoteSource}           \
          -v restoreUserHost="${sourceUserHostAwk}"  \
          -v scpExecOpt="${scpExecOptAwk}"           \
+         -v cpRestoreOpt=${cpRestoreOptAwk}         \
          -v f800="${f800Awk}"                       \
          -v f810="${f810Awk}"                       \
          -v f820="${f820Awk}"                       \
