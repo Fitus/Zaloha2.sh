@@ -4596,17 +4596,17 @@ ${awk} -f "${f420}"                              \
        -v noExec=${noExec}                       \
        -v noUnlink=${noUnlink}                   \
        -v extraTouch=${extraTouch}               \
-       -v cpExecOpt=${cpExecOptAwk}              \
+       -v cpExecOpt="${cpExecOptAwk}"            \
        -v pUser=${pUser}                         \
        -v pGroup=${pGroup}                       \
        -v pMode=${pMode}                         \
        -v syncSLinks=${syncSLinks}               \
-       -v no621Hdr=${no621Hdr}                   \
-       -v no622Hdr=${no622Hdr}                   \
-       -v no623Hdr=${no623Hdr}                   \
        -v f621="${f621Awk}"                      \
        -v f622="${f622Awk}"                      \
        -v f623="${f623Awk}"                      \
+       -v no621Hdr=${no621Hdr}                   \
+       -v no622Hdr=${no622Hdr}                   \
+       -v no623Hdr=${no623Hdr}                   \
        "${f520}"
 
 stop_progress
@@ -4832,16 +4832,16 @@ if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
          -v scpExecOpt="${scpExecOptAwk}"          \
          -v noExec=${noExec}                       \
          -v extraTouch=${extraTouch}               \
-         -v cpExecOpt=${cpExecOptAwk}              \
+         -v cpExecOpt="${cpExecOptAwk}"            \
          -v pRevUser=${pRevUser}                   \
          -v pRevGroup=${pRevGroup}                 \
          -v pRevMode=${pRevMode}                   \
-         -v no631Hdr=${no631Hdr}                   \
-         -v no632Hdr=${no632Hdr}                   \
-         -v no633Hdr=${no633Hdr}                   \
          -v f631="${f631Awk}"                      \
          -v f632="${f632Awk}"                      \
          -v f633="${f633Awk}"                      \
+         -v no631Hdr=${no631Hdr}                   \
+         -v no632Hdr=${no632Hdr}                   \
+         -v no633Hdr=${no633Hdr}                   \
          "${f530}"
 
   stop_progress
@@ -4905,17 +4905,17 @@ if [ ${byteByByte} -eq 1 ] || [ ${sha256} -eq 1 ]; then
          -v noExec=${noExec}                       \
          -v noUnlink=${noUnlink}                   \
          -v extraTouch=${extraTouch}               \
-         -v cpExecOpt=${cpExecOptAwk}              \
+         -v cpExecOpt="${cpExecOptAwk}"            \
          -v pUser=${pUser}                         \
          -v pGroup=${pGroup}                       \
          -v pMode=${pMode}                         \
          -v syncSLinks=0                           \
-         -v no621Hdr=${no651Hdr}                   \
-         -v no622Hdr=${no652Hdr}                   \
-         -v no623Hdr=${no653Hdr}                   \
          -v f621="${f651Awk}"                      \
          -v f622="${f652Awk}"                      \
          -v f623="${f653Awk}"                      \
+         -v no621Hdr=${no651Hdr}                   \
+         -v no622Hdr=${no652Hdr}                   \
+         -v no623Hdr=${no653Hdr}                   \
          "${f550}"
 
   stop_progress
@@ -5168,7 +5168,7 @@ if [ ${noRestore} -eq 0 ]; then
          -v remoteRestore=${remoteSource}           \
          -v restoreUserHost="${sourceUserHostAwk}"  \
          -v scpExecOpt="${scpExecOptAwk}"           \
-         -v cpRestoreOpt=${cpRestoreOptAwk}         \
+         -v cpRestoreOpt="${cpRestoreOptAwk}"       \
          -v f800="${f800Awk}"                       \
          -v f810="${f810Awk}"                       \
          -v f820="${f820Awk}"                       \
