@@ -62,7 +62,7 @@ The integrity of Zaloha2.sh can be verified by its SHA-256 hash. The hash of cur
 
 ```bash
 sha256sum Zaloha2.sh
-099ebd75cf6c181217a74789ff1e531ef9c2975e3bcfc75275add4d6259225b8  Zaloha2.sh
+6384d78f048d9d4de119bf6fc02a2ce961ce5bc8e0d6eba67553dc32b1e3859c  Zaloha2.sh
 ```
 
 ## Usage Examples
@@ -94,6 +94,15 @@ copy them back to <code>test_source</code> (**Reverse-New**):
 
 ```bash
 Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --revNew
+```
+
+Besides the standard synchronization,
+if there are files in <code>test_backup</code> that do not exist in <code>test_source</code>,
+irrespective of how old they are,
+copy them back to <code>test_source</code> (**Reverse-New-All**):
+
+```bash
+Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --revNewAll
 ```
 
 **Do Not Remove** objects from <code>test_backup</code> (unless the removals are unavoidable),

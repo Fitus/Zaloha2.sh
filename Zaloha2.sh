@@ -138,11 +138,13 @@ ATTR:ugmT update only attributes in <backupDir> (u=user ownership,
           (optional features, see below)
 
 Exec3:  reverse-synchronization from <backupDir> to <sourceDir> (optional
-        feature, can be activated via the "--revNew" and "--revUp" options)
+        feature, can be activated via the "--revNew" (or "--revNewAll")
+        and "--revUp" options)
 -----------------------------------
 REV.MKDI  reverse-create parent directory in <sourceDir> due to REV.NEW
 REV.NEW   reverse-create file in <sourceDir> (if a standalone file in
-          <backupDir> is newer than the last run of Zaloha)
+          <backupDir> is newer than the last run of Zaloha (in case
+          of the "--revNewAll" option irrespective of whether it is newer))
 REV.UP    reverse-update file in <sourceDir> (if the file in <backupDir>
           is newer than the file in <sourceDir>)
 REV.UP.!  reverse-update file in <sourceDir> which is newer
@@ -264,8 +266,8 @@ but not necessarily the other objects.
 
 Exec3:
 ------
-This step is optional and can be activated via the "--revNew" and "--revUp"
-options.
+This step is optional and can be activated via the "--revNew" (or "--revNewAll")
+and "--revUp" options.
 
 Why is this feature useful? Imagine you use a Windows notebook while working in
 the field.  At home, you have got a Linux server to that you regularly
@@ -279,6 +281,9 @@ Zaloha, and the "--revNew" option is given, then Zaloha reverse-copies that
 files to <sourceDir> (action code REV.NEW). This might require creation of the
 eventually missing but needed structure of parent directories (REV.MKDI).
 
+It the "--revNewAll" option is given, then REV.NEW occur irrespective of whether
+the standalone files in <backupDir> are newer than the last run of Zaloha.
+
 REV.UP: If files exist under same paths in both <sourceDir> and <backupDir>,
 and the files in <backupDir> are newer, and the "--revUp" option is given,
 then Zaloha uses that files to reverse-update the older files in <sourceDir>
@@ -287,11 +292,11 @@ then Zaloha uses that files to reverse-update the older files in <sourceDir>
 Optionally, to preserve attributes during the REV.MKDI, REV.NEW and REV.UP
 actions: use options "--pRevUser", "--pRevGroup" and "--pRevMode".
 
-If reverse-synchronization is not active: If no "--revNew" option is given,
-then each standalone file in <backupDir> is considered obsolete (and removed,
-unless the "--noRemove" option is given). If no "--revUp" option is given, then
-files in <sourceDir> always update files in <backupDir> if their sizes and/or
-modification times differ.
+If reverse-synchronization is not active: If neither "--revNew" nor
+"--revNewAll" option is given, then each standalone file in <backupDir> is
+considered obsolete (and removed, unless the "--noRemove" option is given).
+If no "--revUp" option is given, then files in <sourceDir> always update
+files in <backupDir> if their sizes and/or modification times differ.
 
 Please note that the reverse-synchronization is NOT a full bi-directional
 synchronization where <sourceDir> and <backupDir> would be equivalent.
@@ -521,6 +526,9 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --revNew        ... enable REV.NEW (= if standalone file in <backupDir> is
                     newer than the last run of Zaloha, reverse-copy it
                     to <sourceDir>)
+
+--revNewAll     ... enable REV.NEW irrespective of whether the standalone file
+                    in <backupDir> is newer than the last run of Zaloha
 
 --revUp         ... enable REV.UP (= if file in <backupDir> is newer than
                     file in <sourceDir>, reverse-update the file in <sourceDir>)
@@ -1140,12 +1148,11 @@ However, the options "--findSourceOps" and "--findGeneralOps" may cause parts
 of the reality to be hidden (masked) from Zaloha, leading to these cases:
 
 [SCC_FIND_01]
-Corner case "--revNew" with "--findSourceOps": If files exist under same paths
-in both <sourceDir> and <backupDir>, and in <sourceDir> the files are masked by
-<findSourceOps> and in <backupDir> the corresponding files are newer than the
-last run of Zaloha, Zaloha prepares REV.NEW actions (that are wrong). This is
-an error which Zaloha is unable to detect. Hence, the shellscripts for Exec3
-contain REV_EXISTS checks that throw errors in such situations.
+Corner case "--revNew" (or "--revNewAll") with "--findSourceOps": If files exist
+under same paths in both <sourceDir> and <backupDir> and in <sourceDir> they
+are masked by <findSourceOps>, then the eventual REV.NEW actions would be wrong.
+This is an error which Zaloha is unable to detect. Hence, the shellscripts
+for Exec3 contain REV_EXISTS checks that throw errors in such situations.
 
 [SCC_FIND_02]
 Corner case RMDIR with "--findGeneralOps": If objects exist under a given
@@ -1393,6 +1400,9 @@ The critical operations from this perspective are the sorts. However,
 GNU sort, for instance, is able to intelligently switch to an external
 sort-merge algorithm, if it determines that the data is "too big",
 thus mitigating this concern.
+
+Side remark here: The theoretical time complexity of Zaloha is O(n * log n)
+due to the sorts, but practically the runtime is dominated by the FIND scans.
 
 Talking further in database developer's language: The data model of all CSV
 metadata files is the same and is described in form of comments in AWKPARSER.
@@ -2081,6 +2091,7 @@ findParallel=0
 noExec=0
 noRemove=0
 revNew=0
+revNewAll=0
 revUp=0
 detectHLinksS=0
 ok2s=0
@@ -2155,6 +2166,7 @@ do
     --noExec)            opt_dupli_check ${noExec} "${tmpVal}";         noExec=1 ;;
     --noRemove)          opt_dupli_check ${noRemove} "${tmpVal}";       noRemove=1 ;;
     --revNew)            opt_dupli_check ${revNew} "${tmpVal}";         revNew=1 ;;
+    --revNewAll)         opt_dupli_check ${revNewAll} "${tmpVal}";      revNewAll=1 ;;
     --revUp)             opt_dupli_check ${revUp} "${tmpVal}";          revUp=1 ;;
     --detectHLinksS)     opt_dupli_check ${detectHLinksS} "${tmpVal}";  detectHLinksS=1 ;;
     --ok2s)              opt_dupli_check ${ok2s} "${tmpVal}";           ok2s=1 ;;
@@ -2255,6 +2267,9 @@ if [ ${byteByByte} -eq 1 ] && [ ${sha256} -eq 1 ]; then
 fi
 if [ ${revNew} -eq 1 ] && [ ${noLastRun} -eq 1 ]; then
   error_exit 'Option --revNew may not be used if option --noLastRun is given'
+fi
+if [ ${revNew} -eq 1 ] && [ ${revNewAll} -eq 1 ]; then
+  error_exit 'Options --revNew and --revNewAll may not be used together'
 fi
 if [ ${noFindSource} -eq 1 ] || [ ${noFindBackup} -eq 1 ]; then
   if [ ${findParallel} -eq 1 ]; then
@@ -2706,6 +2721,7 @@ ${TRIPLET}${FSTAB}findParallel${FSTAB}${findParallel}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noExec${FSTAB}${noExec}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noRemove${FSTAB}${noRemove}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}revNew${FSTAB}${revNew}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}revNewAll${FSTAB}${revNewAll}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}revUp${FSTAB}${revUp}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}detectHLinksS${FSTAB}${detectHLinksS}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}ok2s${FSTAB}${ok2s}${FSTAB}${TRIPLET}
@@ -2787,10 +2803,11 @@ copyToRemoteBackup+=( "${f000}" )
 ${awk} '{ print }' << 'AWKAWKPREPROC' > "${f100}"
 BEGIN {
   eex = "BEGIN {\n"                                                         \
-        "  error_exit_filename = \"\"\n"                                    \
+        "  error_exit_in_progress = 0\n"                                    \
         "}\n"                                                               \
         "function error_exit( msg ) {\n"                                    \
-        "  if ( \"\" == error_exit_filename ) {\n"                          \
+        "  if ( 0 == error_exit_in_progress ) {\n"                          \
+        "    error_exit_in_progress = 1\n"                                  \
         "    if ( \"\" != FILENAME ) {\n"                                   \
         "      error_exit_filename = FILENAME\n"                            \
         "      sub( /^.*\\//, \"\", error_exit_filename )\n"                \
@@ -2802,7 +2819,7 @@ BEGIN {
         "  }\n"                                                             \
         "}"
   war = "function warning( msg ) {\n"                                       \
-        "  if ( \"\" == error_exit_filename ) {\n"                          \
+        "  if ( 0 == error_exit_in_progress ) {\n"                          \
         "    gsub( CNTRLREGEX, TRIPLETC, msg )\n"                           \
         "    print \"\\nZaloha AWK: Warning: \" msg > \"/dev/stderr\"\n"    \
         "  }\n"                                                             \
@@ -3813,7 +3830,7 @@ function process_previous_record() {
     if ( "d" == tp ) {                         # directory only in <backupDir> (case 26)
       try_to_keep_or_remove( noRemove )
     } else if ( "f" == tp ) {                  # file only in <backupDir> (case 27)
-      if (( 1 == revNew ) && ( 0 != lru ) && ( lru < tm )) {
+      if ((( 1 == revNew ) && ( 0 != lru ) && ( lru < tm )) || ( 1 == revNewAll )) {
         if ( "" == xkp ) {
           print_previous( "REV.NEW" )
         } else if ( 1 == index( pt, xkp )) {
@@ -4024,6 +4041,7 @@ start_progress 'Differences processing'
 ${awk} -f "${f170}"                       \
        -v noRemove=${noRemove}            \
        -v revNew=${revNew}                \
+       -v revNewAll=${revNewAll}          \
        -v revUp=${revUp}                  \
        -v ok2s=${ok2s}                    \
        -v ok3600s=${ok3600s}              \
@@ -4144,7 +4162,7 @@ BEGIN {
   gsub( TRIPLETBREGEX, BSLASH, f530 )
   gsub( TRIPLETBREGEX, BSLASH, f550 )
   printf "" > f520
-  if (( 1 == revNew ) || ( 1 == revUp )) {
+  if (( 1 == revNew ) || ( 1 == revNewAll ) || ( 1 == revUp )) {
     printf "" > f530
   }
   if ( 1 == sha256 ) {
@@ -4169,7 +4187,7 @@ END {
   if ( 1 == sha256 ) {
     close( f550 )
   }
-  if (( 1 == revNew ) || ( 1 == revUp )) {
+  if (( 1 == revNew ) || ( 1 == revNewAll ) || ( 1 == revUp )) {
     close( f530 )
   }
   close( f520 )
@@ -4178,7 +4196,7 @@ AWKSELECT23
 
 tmpVal='Exec2'
 
-if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
+if [ ${revNew} -eq 1 ] || [ ${revNewAll} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
   tmpVal+=', Exec3'
 
@@ -4201,12 +4219,13 @@ fi
 start_progress "Sorting (4) and selecting ${tmpVal}"
 
 LC_ALL=C sort -t "${FSTAB}" -k14,14 -k2,2 "${f500}" | ${awk} -f "${f405}"  \
-    -v f520="${f520Awk}"  \
-    -v f530="${f530Awk}"  \
-    -v f550="${f550Awk}"  \
-    -v revNew=${revNew}   \
-    -v revUp=${revUp}     \
-    -v sha256=${sha256}   > "${f505}"
+    -v f520="${f520Awk}"       \
+    -v f530="${f530Awk}"       \
+    -v f550="${f550Awk}"       \
+    -v revNew=${revNew}        \
+    -v revNewAll=${revNewAll}  \
+    -v revUp=${revUp}          \
+    -v sha256=${sha256}        > "${f505}"
 
 stop_progress
 
@@ -4818,7 +4837,7 @@ END {
 }
 AWKEXEC3
 
-if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
+if [ ${revNew} -eq 1 ] || [ ${revNewAll} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
   start_progress 'Preparing shellscripts for Exec3'
 
@@ -4855,7 +4874,7 @@ else
   removeFromRemoteSource+="${f631RemoteSourceScp} ${f633RemoteSourceScp} "
 
   if [ -e "${f530}" ]; then
-    error_exit 'Unexpected, REV actions prepared although neither --revNew nor --revUp option given'
+    error_exit 'Unexpected, REV actions prepared although neither --revNew nor --revNewAll nor --revUp option given'
   fi
 
 fi
@@ -5307,7 +5326,7 @@ if [ -s "${f520}" ]; then
   fi
 fi
 
-if [ ${revNew} -eq 1 ] || [ ${revUp} -eq 1 ]; then
+if [ ${revNew} -eq 1 ] || [ ${revNewAll} -eq 1 ] || [ ${revUp} -eq 1 ]; then
 
   printf '\nTO BE REVERSE-COPIED TO %s\n' "${sourceUserHostDirTerm}"
   printf '===========================================\n'

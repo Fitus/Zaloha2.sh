@@ -110,11 +110,13 @@ Exec2:  copy files/directories to &lt;backupDir&gt; which exist only in &lt;sour
           (optional features, see below)
 
 Exec3:  reverse-synchronization from &lt;backupDir&gt; to &lt;sourceDir&gt; (optional
-        feature, can be activated via the <b>--revNew</b> and <b>--revUp</b> options)
+        feature, can be activated via the <b>--revNew</b> (or <b>--revNewAll</b>)
+        and <b>--revUp</b> options)
 -----------------------------------
 <b>REV.MKDI</b>  reverse-create parent directory in &lt;sourceDir&gt; due to <b>REV.NEW</b>
 <b>REV.NEW</b>   reverse-create file in &lt;sourceDir&gt; (if a standalone file in
-          &lt;backupDir&gt; is newer than the last run of Zaloha)
+          &lt;backupDir&gt; is newer than the last run of Zaloha (in case
+          of the <b>--revNewAll</b> option irrespective of whether it is newer))
 <b>REV.UP</b>    reverse-update file in &lt;sourceDir&gt; (if the file in &lt;backupDir&gt;
           is newer than the file in &lt;sourceDir&gt;)
 <b>REV.UP.!</b>  reverse-update file in &lt;sourceDir&gt; which is newer
@@ -237,8 +239,8 @@ but not necessarily the other objects.
 
 Exec3:
 ------
-This step is optional and can be activated via the <b>--revNew</b> and <b>--revUp</b>
-options.
+This step is optional and can be activated via the <b>--revNew</b> (or <b>--revNewAll</b>)
+and <b>--revUp</b> options.
 
 Why is this feature useful? Imagine you use a Windows notebook while working in
 the field.  At home, you have got a Linux server to that you regularly
@@ -252,6 +254,9 @@ Zaloha, and the <b>--revNew</b> option is given, then Zaloha reverse-copies that
 files to &lt;sourceDir&gt; (action code <b>REV.NEW</b>). This might require creation of the
 eventually missing but needed structure of parent directories (<b>REV.MKDI</b>).
 
+It the <b>--revNewAll</b> option is given, then <b>REV.NEW</b> occur irrespective of whether
+the standalone files in &lt;backupDir&gt; are newer than the last run of Zaloha.
+
 <b>REV.UP:</b> If files exist under same paths in both &lt;sourceDir&gt; and &lt;backupDir&gt;,
 and the files in &lt;backupDir&gt; are newer, and the <b>--revUp</b> option is given,
 then Zaloha uses that files to reverse-update the older files in &lt;sourceDir&gt;
@@ -260,11 +265,11 @@ then Zaloha uses that files to reverse-update the older files in &lt;sourceDir&g
 Optionally, to preserve attributes during the <b>REV.MKDI</b>, <b>REV.NEW</b> and <b>REV.UP</b>
 actions: use options <b>--pRevUser</b>, <b>--pRevGroup</b> and <b>--pRevMode.</b>
 
-If reverse-synchronization is not active: If no <b>--revNew</b> option is given,
-then each standalone file in &lt;backupDir&gt; is considered obsolete (and removed,
-unless the <b>--noRemove</b> option is given). If no <b>--revUp</b> option is given, then
-files in &lt;sourceDir&gt; always update files in &lt;backupDir&gt; if their sizes and/or
-modification times differ.
+If reverse-synchronization is not active: If neither <b>--revNew</b> nor
+<b>--revNewAll</b> option is given, then each standalone file in &lt;backupDir&gt; is
+considered obsolete (and removed, unless the <b>--noRemove</b> option is given).
+If no <b>--revUp</b> option is given, then files in &lt;sourceDir&gt; always update
+files in &lt;backupDir&gt; if their sizes and/or modification times differ.
 
 Please note that the reverse-synchronization is NOT a full bi-directional
 synchronization where &lt;sourceDir&gt; and &lt;backupDir&gt; would be equivalent.
@@ -495,6 +500,9 @@ to backslashes inside.
 <b>--revNew</b>        ... enable <b>REV.NEW</b> (= if standalone file in &lt;backupDir&gt; is
                     newer than the last run of Zaloha, reverse-copy it
                     to &lt;sourceDir&gt;)
+
+<b>--revNewAll</b>     ... enable <b>REV.NEW</b> irrespective of whether the standalone file
+                    in &lt;backupDir&gt; is newer than the last run of Zaloha
 
 <b>--revUp</b>         ... enable <b>REV.UP</b> (= if file in &lt;backupDir&gt; is newer than
                     file in &lt;sourceDir&gt;, reverse-update the file in &lt;sourceDir&gt;)
@@ -1118,12 +1126,11 @@ However, the options <b>--findSourceOps</b> and <b>--findGeneralOps</b> may caus
 of the reality to be hidden (masked) from Zaloha, leading to these cases:
 
 [SCC_FIND_01]
-Corner case <b>--revNew</b> with <b>--findSourceOps:</b> If files exist under same paths
-in both &lt;sourceDir&gt; and &lt;backupDir&gt;, and in &lt;sourceDir&gt; the files are masked by
-&lt;findSourceOps&gt; and in &lt;backupDir&gt; the corresponding files are newer than the
-last run of Zaloha, Zaloha prepares <b>REV.NEW</b> actions (that are wrong). This is
-an error which Zaloha is unable to detect. Hence, the shellscripts for Exec3
-contain REV_EXISTS checks that throw errors in such situations.
+Corner case <b>--revNew</b> (or <b>--revNewAll</b>) with <b>--findSourceOps:</b> If files exist
+under same paths in both &lt;sourceDir&gt; and &lt;backupDir&gt; and in &lt;sourceDir&gt; they
+are masked by &lt;findSourceOps&gt;, then the eventual <b>REV.NEW</b> actions would be wrong.
+This is an error which Zaloha is unable to detect. Hence, the shellscripts
+for Exec3 contain REV_EXISTS checks that throw errors in such situations.
 
 [SCC_FIND_02]
 Corner case <b>RMDIR</b> with <b>--findGeneralOps:</b> If objects exist under a given
@@ -1372,6 +1379,9 @@ The critical operations from this perspective are the sorts. However,
 GNU sort, for instance, is able to intelligently switch to an external
 sort-merge algorithm, if it determines that the data is "too big",
 thus mitigating this concern.
+
+Side remark here: The theoretical time complexity of Zaloha is O(n * log n)
+due to the sorts, but practically the runtime is dominated by the FIND scans.
 
 Talking further in database developer's language: The data model of all CSV
 metadata files is the same and is described in form of comments in AWKPARSER.
