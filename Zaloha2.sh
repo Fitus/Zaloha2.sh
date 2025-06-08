@@ -2676,7 +2676,7 @@ f870RemoteBackupScp="${metaDirScp}${f870Base}"
 f999RemoteBackupScp="${metaDirScp}${f999Base}"
 
 copyToRemoteBackup=()
-copyFromRemoteBackup=
+copyFromRemoteBackup=()
 removeFromRemoteBackup=
 
 # MAKE SURE THAT EVENTUAL OBSOLETE LOCAL-MODE SHELLSCRIPTS 620, 630 AND 650 FROM Zaloha.sh ARE REMOVED
@@ -3137,7 +3137,7 @@ if [ ${noLastRun} -eq 0 ]; then
 
     ssh ${sshOptions} "${backupUserHost}" "bash ${f200RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    copyFromRemoteBackup+="${f300RemoteBackupScp} "
+    copyFromRemoteBackup+=("${f300RemoteBackupScp}")
 
   else
 
@@ -3216,7 +3216,7 @@ if [ ${noFindBackup} -eq 0 ]; then
 
     ssh ${sshOptions} "${backupUserHost}" "bash ${f220RemoteBackupScp}" | ${awkNoBuf} -f "${f102}" -v color=${color}
 
-    copyFromRemoteBackup+="${f320RemoteBackupScp} "
+    copyFromRemoteBackup+=("${f320RemoteBackupScp}")
 
   elif [ ${findParallel} -eq 0 ]; then
 
@@ -3250,7 +3250,9 @@ elif [ '' != "${copyFromRemoteBackup}" ]; then
 
   progress_scp_meta '<'
 
-  scp ${scpMetaOpt} "${backupUserHost}:${copyFromRemoteBackup}" "${metaDirLocal}"
+  for file in "${copyFromRemoteBackup[@]}" ; do
+    scp ${scpMetaOpt} "${backupUserHost}:$file" "${metaDirLocal}"
+  done
 
   progress_scp_meta '<'
 
