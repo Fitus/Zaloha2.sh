@@ -2452,7 +2452,7 @@ metaDirPattAwk="${metaDirPattAwk//${ASTERISKPATTERN}/${TRIPLETB}${ASTERISK}}"
 metaDirPattAwk="${metaDirPattAwk//${QUESTIONMARKPATTERN}/${TRIPLETB}${QUESTIONMARK}}"
 metaDirPattAwk="${metaDirPattAwk//${LBRACKETPATTERN}/${TRIPLETB}${LBRACKET}}"
 metaDirPattAwk="${metaDirPattAwk//${RBRACKETPATTERN}/${TRIPLETB}${RBRACKET}}"
-metaDirScp="${QUOTE}${metaDir//${QUOTEPATTERN}/${QUOTEESC}}${QUOTE}"
+metaDirScp="${metaDir//${QUOTEPATTERN}/${QUOTEESC}}"
 metaDirEsc="${metaDir//${TAB}/${TRIPLETT}}"
 metaDirEsc="${metaDirEsc//${NLINE}/${TRIPLETN}}"
 
