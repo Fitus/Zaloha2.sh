@@ -4412,7 +4412,7 @@ BEGIN {
       print "sourceDir='" sourceDir "'" > f622
     }
     if ( 1 == remoteBackup ) {
-      print "backupUserHostDirScp='" backupUserHost ":'" QUOTESCP "'" backupDirScp "'" QUOTESCP > f622
+      print "backupUserHostDirScp=\"" backupUserHost ":" backupDirScp "\""> f622
     } else {
       print "backupDir='" backupDir "'" > f622
     }
@@ -4532,14 +4532,14 @@ function next_pin() {
   gsub( QUOTEREGEX, QUOTEESC, gr )
   gsub( QUOTEREGEX, QUOTEESC, pt )
   gsub( QUOTEREGEX, QUOTEESC, ol )
-  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", ptScp )
+  gsub( QUOTEREGEX, QUOTEESCSCP, ptScp )
   u = "'" us "'"
   g = "'" gr "'"
   m = "'" md "'"
   s = "\"${sourceDir}\"'" pt "'"
-  b = "\"${backupDir}\"'" pt "'"
+  b = "\"${backupDir}" pt "\""
   sScp = "\"${sourceUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
-  bScp = "\"${backupUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
+  bScp = "\"${backupUserHostDirScp}" ptScp "\""
   if ( $2 ~ /^MKDIR/ ) {
     print "${MKDIR} " b > f621
     apply_attr_dir()
@@ -4698,7 +4698,7 @@ BEGIN {
       print "sourceDir='" sourceDir "'" > f632
     }
     if ( 1 == remoteBackup ) {
-      print "backupUserHostDirScp='" backupUserHost ":'" QUOTESCP "'" backupDirScp "'" QUOTESCP > f632
+      print "backupUserHostDirScp=\"" backupUserHost ":" backupDirScp "\""> f632
     } else {
       print "backupDir='" backupDir "'" > f632
     }
@@ -4804,14 +4804,14 @@ function next_pin() {
   gsub( QUOTEREGEX, QUOTEESC, gr )
   gsub( QUOTEREGEX, QUOTEESC, pt )
   gsub( QUOTEREGEX, QUOTEESC, ptt )
-  gsub( QUOTEREGEX, "'" QUOTEESCSCP "'", ptScp )
+  gsub( QUOTEREGEX, QUOTEESCSCP, ptScp )
   u = "'" us "'"
   g = "'" gr "'"
   m = "'" md "'"
-  s = "\"${sourceDir}\"'" pt "'"
+  s = "\"${sourceDir}" pt "\""
   b = "\"${backupDir}\"'" pt "'"
   sScp = "\"${sourceUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
-  bScp = "\"${backupUserHostDirScp}\"" QUOTESCP "'" ptScp "'" QUOTESCP
+  bScp = "\"${backupUserHostDirScp}" ptScp "\""
   if ( $2 ~ /^REV\.MKDI/ ) {
     rev_check_nonex_dir()
     print "${MKDIR} " s > f631
