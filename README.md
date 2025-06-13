@@ -180,12 +180,6 @@ Do not prepare scripts for the case of restore (**No Restore**, saves processing
 Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --noRestore
 ```
 
-Instead of GNU AWK, use **MAWK**, the very fast AWK implementation based on a bytecode interpreter:
-
-```bash
-Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --mawk
-```
-
 Produce less screen output (**No Progress Messages** from the analysis phase):
 
 ```bash
@@ -230,9 +224,8 @@ specially handle sensitive data and so on.
 
 * The option <code>--noRestore</code> switches off creation of the restore scripts.
   If you do not need the restore scripts, use this option to shorten the analysis phase.
-* The option <code>--mawk</code> instructs Zaloha2 to use MAWK instead of (usually) GNU AWK.
-  MAWK is an AWK implementation based on a bytecode interpreter and is significantly faster.
-  To utilize MAWK, it must be installed on the local system.
+* Install MAWK on the local system. MAWK is an AWK implementation based on a bytecode interpreter
+  and is significantly faster.
 
 Performance was measured on following system and data:
 
@@ -243,7 +236,7 @@ Performance was measured on following system and data:
  * Data synchronized: 110 GB, 88.000 files
  * Operating system: Linux (Fedora 30)
  * Binary utilities used by Zaloha2: GNU find, GNU sort, mawk
- * Zaloha2 options: <code>--noRestore</code> YES, <code>--mawk</code> YES, <code>--detectHLinksS</code> NO, <code>--byteByByte</code> NO
+ * Zaloha2 options: <code>--noRestore</code> YES, <code>--detectHLinksS</code> NO, <code>--byteByByte</code> NO
 
 Measured performance of the analysis phase:
  * first run: **25 seconds** (filesystem data not cached in the OS: the FINDs 2 x 12 secs, the sorts and AWKs 1 sec)
@@ -343,7 +336,7 @@ prints out the files where the SHA-256 hash equals to the SHA-256 hash in the im
 
 ## Performance tuning in the Remote Source and Remote Backup Modes
 
-* The options <code>--noRestore</code> and <code>--mawk</code> (see above) are relevant for the Remote Modes as well.
+* The option <code>--noRestore</code> and local installed MAWK (see above) are relevant for the Remote Modes as well.
 * The option <code>--findParallel</code> instructs Zaloha2 to run the FIND scans of the source and backup directories in parallel.
   As these scans run on different hosts, this will further save time.
 * Last, SCP can be tuned for higher speed by choosing suitable ciphers and compression levels. See SCP documentation for details.

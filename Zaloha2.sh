@@ -725,15 +725,6 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 --color         ... use color highlighting (can be used on terminals which
                     support ANSI escape codes)
 
---mawk          ... use mawk, the very fast AWK implementation based on a
-                    bytecode interpreter. Without this option, awk is used,
-                    which usually maps to GNU awk (but not always).
-                    (Note: If you know that awk on your system maps to mawk,
-                     use this option to make the mawk usage explicit, as this
-                     option also turns off mawk's i/o buffering on places where
-                     progress of commands is displayed, i.e. on places where
-                     i/o buffering causes confusion and is unwanted).
-
 --lTest         ... (do not use in real operations) support for lint-testing
                     of AWK programs
 
@@ -2146,7 +2137,6 @@ noR860Hdr=0
 noR870Hdr=0
 noProgress=0
 color=0
-mawk=0
 lTest=0
 help=0
 
@@ -2217,7 +2207,6 @@ do
     --noR870Hdr)         opt_dupli_check ${noR870Hdr} "${tmpVal}";      noR870Hdr=1 ;;
     --noProgress)        opt_dupli_check ${noProgress} "${tmpVal}";     noProgress=1 ;;
     --color)             opt_dupli_check ${color} "${tmpVal}";          color=1 ;;
-    --mawk)              opt_dupli_check ${mawk} "${tmpVal}";           mawk=1 ;;
     --lTest)             opt_dupli_check ${lTest} "${tmpVal}";          lTest=1 ;;
     --help)              opt_dupli_check ${help} "${tmpVal}";           help=1 ;;
     *) error_exit "Unknown option ${tmpVal//${CNTRLPATTERN}/${TRIPLETC}}, get help via Zaloha2.sh --help" ;;
@@ -2308,15 +2297,19 @@ if [ ${cpRestoreOptPassed} -eq 0 ]; then
 fi
 cpRestoreOptAwk="${cpRestoreOpt//${BSLASHPATTERN}/${TRIPLETB}}"
 
-if [ ${mawk} -eq 1 ]; then
-  awk='mawk'
-  awkNoBuf='mawk -W interactive'
-elif [ ${lTest} -eq 1 ]; then
-  awk='awk -Lfatal'
-  awkNoBuf='awk -Lfatal'
+awk="$(command -v mawk)" || true
+if [ -n "${awk}" ]; then
+  awkNoBuf="${awk} -W interactive"
 else
-  awk='awk'
-  awkNoBuf='awk'
+  awk="$(command -v awk)" || true
+  if [ -z "${awk}" ]; then
+    error_exit "No 'awk' program found"
+  fi
+  awkNoBuf="${awk} -Lfatal"
+fi
+
+if [ ${lTest} -eq 1 ]; then
+  awk="${awkNoBuf}"
 fi
 
 ###########################################################
@@ -2786,7 +2779,6 @@ ${TRIPLET}${FSTAB}noR860Hdr${FSTAB}${noR860Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noR870Hdr${FSTAB}${noR870Hdr}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noProgress${FSTAB}${noProgress}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}color${FSTAB}${color}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}mawk${FSTAB}${mawk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}lTest${FSTAB}${lTest}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findLastRunOpsFinalAwk${FSTAB}${findLastRunOpsFinalAwk}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}findSourceOpsFinalAwk${FSTAB}${findSourceOpsFinalAwk}${FSTAB}${TRIPLET}
