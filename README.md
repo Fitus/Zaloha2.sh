@@ -62,7 +62,7 @@ The integrity of Zaloha2.sh can be verified by its SHA-256 hash. The hash of cur
 
 ```bash
 sha256sum Zaloha2.sh
-6384d78f048d9d4de119bf6fc02a2ce961ce5bc8e0d6eba67553dc32b1e3859c  Zaloha2.sh
+43028478277a703d055c7d35652813258229c2c668a28404f8601fcf7d519010  Zaloha2.sh
 ```
 
 ## Usage Examples
@@ -280,7 +280,7 @@ Zaloha2.sh --sourceDir="test_source_remote"    \
            --backupDir="test_backup_local"     \
            --sourceUserHost='user@sourcehost'  \
            --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
-           --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
+           --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T -O'
 
 # Terminate the SSH master connection
 ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@sourcehost'
@@ -314,7 +314,7 @@ Zaloha2.sh --sourceDir="test_source_local"     \
            --backupDir="test_backup_remote"    \
            --backupUserHost='user@backuphost'  \
            --sshOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p'     \
-           --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T'
+           --scpOptions='-o ControlMaster=no -o ControlPath=~/.ssh/cm-%r@%h:%p -T -O'
 
 # Terminate the SSH master connection
 ssh -O exit -o ControlPath='~/.ssh/cm-%r@%h:%p' 'user@backuphost'
@@ -391,6 +391,7 @@ Restore script **870** | Commands to preserve times of files have been moved fro
 &nbsp; | New option **--sha256** for comparing the contents of files via SHA-256 hashes
 CSV data model of **16&nbsp;columns** | Extended to **17&nbsp;columns** to accommodate the SHA-256 hashes in new separate column 13 (original columns 13+14+15+16 shifted to 14+15+16+17)
 &nbsp; | New check for falsely detected hardlinks: SHA-256 hash differs
+&nbsp; | New option **--revNewAll** to enable REV.NEW irrespective of the age of the standalone file in &lt;backupDir&gt;
 Option **--hLinks** | Renamed to **--detectHLinksS** (more descriptive option name)
 Option **--touch** | Renamed to **--extraTouch** (more descriptive option name)
 &nbsp; | New option **--syncSLinks** for synchronization of symbolic links
