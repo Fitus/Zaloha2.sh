@@ -62,7 +62,7 @@ The integrity of Zaloha2.sh can be verified by its SHA-256 hash. The hash of cur
 
 ```bash
 sha256sum Zaloha2.sh
-43028478277a703d055c7d35652813258229c2c668a28404f8601fcf7d519010  Zaloha2.sh
+f80879e330745063f1f36c611153a92af824da4cdf1ef851e4f9e9744861d5f5  Zaloha2.sh
 ```
 
 ## Usage Examples
@@ -174,10 +174,10 @@ Compare files **Byte-By-Byte** instead of by just their sizes and modification t
 Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --byteByByte
 ```
 
-Do not prepare scripts for the case of restore (**No Restore**, saves processing time and disk space):
+Do not prepare scripts for the case of restore (**No Restore Scripts**, saves processing time and disk space):
 
 ```bash
-Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --noRestore
+Zaloha2.sh --sourceDir="test_source" --backupDir="test_backup" --noRestoreScripts
 ```
 
 Instead of GNU AWK, use **MAWK**, the very fast AWK implementation based on a bytecode interpreter:
@@ -228,7 +228,7 @@ specially handle sensitive data and so on.
 
 ## Performance tuning and Performance data (in the Local Mode)
 
-* The option <code>--noRestore</code> switches off creation of the restore scripts.
+* The option <code>--noRestoreScripts</code> switches off creation of the restore scripts.
   If you do not need the restore scripts, use this option to shorten the analysis phase.
 * The option <code>--mawk</code> instructs Zaloha2 to use MAWK instead of (usually) GNU AWK.
   MAWK is an AWK implementation based on a bytecode interpreter and is significantly faster.
@@ -243,7 +243,7 @@ Performance was measured on following system and data:
  * Data synchronized: 110 GB, 88.000 files
  * Operating system: Linux (Fedora 30)
  * Binary utilities used by Zaloha2: GNU find, GNU sort, mawk
- * Zaloha2 options: <code>--noRestore</code> YES, <code>--mawk</code> YES, <code>--detectHLinksS</code> NO, <code>--byteByByte</code> NO
+ * Zaloha2 options: <code>--noRestoreScripts</code> YES, <code>--mawk</code> YES, <code>--detectHLinksS</code> NO, <code>--byteByByte</code> NO
 
 Measured performance of the analysis phase:
  * first run: **25 seconds** (filesystem data not cached in the OS: the FINDs 2 x 12 secs, the sorts and AWKs 1 sec)
@@ -343,7 +343,7 @@ prints out the files where the SHA-256 hash equals to the SHA-256 hash in the im
 
 ## Performance tuning in the Remote Source and Remote Backup Modes
 
-* The options <code>--noRestore</code> and <code>--mawk</code> (see above) are relevant for the Remote Modes as well.
+* The options <code>--noRestoreScripts</code> and <code>--mawk</code> (see above) are relevant for the Remote Modes as well.
 * The option <code>--findParallel</code> instructs Zaloha2 to run the FIND scans of the source and backup directories in parallel.
   As these scans run on different hosts, this will further save time.
 * Last, SCP can be tuned for higher speed by choosing suitable ciphers and compression levels. See SCP documentation for details.
@@ -394,6 +394,7 @@ CSV data model of **16&nbsp;columns** | Extended to **17&nbsp;columns** to accom
 &nbsp; | New option **--revNewAll** to enable REV.NEW irrespective of the age of the standalone file in &lt;backupDir&gt;
 Option **--hLinks** | Renamed to **--detectHLinksS** (more descriptive option name)
 Option **--touch** | Renamed to **--extraTouch** (more descriptive option name)
+Option **--noRestore** | Renamed to **--noRestoreScripts** (more descriptive option name)
 &nbsp; | New option **--syncSLinks** for synchronization of symbolic links
 Option **--noExec1Hdr** | Renamed to **--no610Hdr**
 Option **--noExec2Hdr** | Replaced by finer-grained options **--no621Hdr**, **--no622Hdr** and **--no623Hdr**

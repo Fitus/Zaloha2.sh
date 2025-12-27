@@ -407,7 +407,7 @@ key variables for the whole script are defined (and can be adjusted as needed).
 
 The production of the shellscripts for the case of restore may cause increased
 processing time and/or storage space consumption. It can be switched off by the
-"--noRestore" option.
+"--noRestoreScripts" option.
 
 In case of need, the shellscripts for the case of restore can also be prepared
 manually by running the AWK program 700 on the CSV metadata file 505:
@@ -620,7 +620,7 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 
 --noWarnSLinks  ... suppress warnings related to symbolic links
 
---noRestore     ... do not prepare scripts for the case of restore (= saves
+--noRestoreScripts  ... do not prepare scripts for the case of restore (= saves
     processing time and disk space, see Optimization note below). The scripts
     for the case of restore can still be produced ex-post by manually running
     the respective AWK program (700 file) on the source CSV file (505 file).
@@ -747,7 +747,7 @@ Zaloha2.sh --sourceDir=<sourceDir> --backupDir=<backupDir> [ other options ... ]
 Optimization note: If Zaloha operates on directories with huge numbers of files,
 especially small ones, then the size of metadata plus the size of scripts for
 the case of restore may exceed the size of the files themselves. If this leads
-to problems, use options "--noRestore" and "--optimCSV".
+to problems, use options "--noRestoreScripts" and "--optimCSV".
 
 Zaloha must be run by a user with sufficient privileges to read <sourceDir> and
 to write and perform other required actions on <backupDir>. In case of the REV
@@ -2135,7 +2135,7 @@ followSLinksS=0
 followSLinksB=0
 syncSLinks=0
 noWarnSLinks=0
-noRestore=0
+noRestoreScripts=0
 optimCSV=0
 metaDir=
 metaDirPassed=0
@@ -2208,7 +2208,9 @@ do
     --followSLinksB)     opt_dupli_check ${followSLinksB} "${tmpVal}";  followSLinksB=1 ;;
     --syncSLinks)        opt_dupli_check ${syncSLinks} "${tmpVal}";     syncSLinks=1 ;;
     --noWarnSLinks)      opt_dupli_check ${noWarnSLinks} "${tmpVal}";   noWarnSLinks=1 ;;
-    --noRestore)         opt_dupli_check ${noRestore} "${tmpVal}";      noRestore=1 ;;
+    --noRestoreScripts)  opt_dupli_check ${noRestoreScripts} "${tmpVal}";       noRestoreScripts=1 ;;
+    --noRestore)         printf 'Zaloha2.sh: Option --noRestore is obsolete, superseded by --noRestoreScripts\n' >&2
+                         opt_dupli_check ${noRestoreScripts} "${tmpVal}";       noRestoreScripts=1 ;;
     --optimCSV)          opt_dupli_check ${optimCSV} "${tmpVal}";       optimCSV=1 ;;
     --metaDir=*)         opt_dupli_check ${metaDirPassed} "${tmpVal%%=*}";      metaDir="${tmpVal#*=}";      metaDirPassed=1 ;;
     --metaDirTemp=*)     opt_dupli_check ${metaDirTempPassed} "${tmpVal%%=*}";  metaDirTemp="${tmpVal#*=}";  metaDirTempPassed=1 ;;
@@ -2768,7 +2770,7 @@ ${TRIPLET}${FSTAB}followSLinksS${FSTAB}${followSLinksS}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}followSLinksB${FSTAB}${followSLinksB}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}syncSLinks${FSTAB}${syncSLinks}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}noWarnSLinks${FSTAB}${noWarnSLinks}${FSTAB}${TRIPLET}
-${TRIPLET}${FSTAB}noRestore${FSTAB}${noRestore}${FSTAB}${TRIPLET}
+${TRIPLET}${FSTAB}noRestoreScripts${FSTAB}${noRestoreScripts}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}optimCSV${FSTAB}${optimCSV}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDir${FSTAB}${metaDir}${FSTAB}${TRIPLET}
 ${TRIPLET}${FSTAB}metaDirAwk${FSTAB}${metaDirAwk}${FSTAB}${TRIPLET}
@@ -5196,7 +5198,7 @@ AWKRESTORE
 
 copyToRemoteBackup+=( "${f700}" )
 
-if [ ${noRestore} -eq 0 ]; then
+if [ ${noRestoreScripts} -eq 0 ]; then
 
   start_progress 'Preparing shellscripts for case of restore'
 

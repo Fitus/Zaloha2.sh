@@ -182,7 +182,7 @@ Optionally, Zaloha can also synchronize attributes (u=user ownerships,
 g=group ownerships, m=modes (permission bits)). This functionality can be
 activated by the options <b>--pUser</b>, <b>--pGroup</b> and <b>--pMode.</b> The selected
 attributes then get preserved during each <b>MKDIR</b>, <b>NEW</b>, <b>UPDATE</b>, <b>unl.UP</b> and
-SLINK (here except the modes) action. If none of these actions got prepared
+<b>SLINK</b> (here except the modes) action. If none of these actions got prepared
 on the respective objects and only their attributes need to get synchronized,
 then special action codes <b>ATTR:ugm</b> will get prepared to synchronize them.
 For symbolic links this applies only if their synchronization
@@ -380,7 +380,7 @@ key variables for the whole script are defined (and can be adjusted as needed).
 
 The production of the shellscripts for the case of restore may cause increased
 processing time and/or storage space consumption. It can be switched off by the
-<b>--noRestore</b> option.
+<b>--noRestoreScripts</b> option.
 
 In case of need, the shellscripts for the case of restore can also be prepared
 manually by running the AWK program 700 on the CSV metadata file 505:
@@ -568,14 +568,14 @@ to backslashes inside.
                     instruct CP to preserve extended attributes during copying
                     as well:
 
-                          --cpOptions='--preserve=timestamps,xattr'
+                          <b>--cpOptions</b>='--preserve=timestamps,xattr'
 
 <b>--cpRestoreOpt</b>=&lt;cpRestoreOpt&gt; can be used to override &lt;cpOptions&gt; specially for
                     the CP commands used in the restore scripts.
 
 <b>--pUser</b>         ... preserve user ownerships, group ownerships and/or modes
 <b>--pGroup</b>            (permission bits) during <b>MKDIR</b>, <b>NEW</b>, <b>UPDATE</b>, <b>unl.UP</b>
-<b>--pMode</b>             and SLINK (here except the modes) actions. If none of these
+<b>--pMode</b>             and <b>SLINK</b> (here except the modes) actions. If none of these
                     actions got prepared on the respective objects
                     and only their attributes need to get synchronized,
                     then special action codes <b>ATTR:ugm</b> will get prepared
@@ -594,7 +594,7 @@ to backslashes inside.
 
 <b>--noWarnSLinks</b>  ... suppress warnings related to symbolic links
 
-<b>--noRestore</b>     ... do not prepare scripts for the case of restore (= saves
+<b>--noRestoreScripts</b>  ... do not prepare scripts for the case of restore (= saves
     processing time and disk space, see Optimization note below). The scripts
     for the case of restore can still be produced ex-post by manually running
     the respective AWK program (700 file) on the source CSV file (505 file).
@@ -721,7 +721,7 @@ to backslashes inside.
 Optimization note: If Zaloha operates on directories with huge numbers of files,
 especially small ones, then the size of metadata plus the size of scripts for
 the case of restore may exceed the size of the files themselves. If this leads
-to problems, use options <b>--noRestore</b> and <b>--optimCSV.</b>
+to problems, use options <b>--noRestoreScripts</b> and <b>--optimCSV.</b>
 
 Zaloha must be run by a user with sufficient privileges to read &lt;sourceDir&gt; and
 to write and perform other required actions on &lt;backupDir&gt;. In case of the REV
@@ -807,7 +807,7 @@ Further, the internal logic of Zaloha imposes the following limitations:
    exclusion applies only to files). Example: exclude all files smaller than
    1000 bytes:
 
-    --findSourceOps='( -type f -a -size -1000c ) -o'
+    <b>--findSourceOps</b>='( -type f -a -size -1000c ) -o'
 
  * Exclusion of subdirectories by the <b>--findSourceOps</b> option: One limitation
    must be obeyed: If a subdirectory is excluded, all its contents must be
@@ -817,7 +817,7 @@ Further, the internal logic of Zaloha imposes the following limitations:
    will not get prepared and executed. A correct example: exclude all
    subdirectories owned by user fred and all their contents:
 
-    --findSourceOps='( -type d -a -user fred ) -prune -o'
+    <b>--findSourceOps</b>='( -type d -a -user fred ) -prune -o'
 
    The -prune operand instructs FIND to not descend into directories matched
    by the preceding expression.
@@ -831,7 +831,7 @@ Further, the internal logic of Zaloha imposes the following limitations:
    expressions based on other operands like -size, -user and so on.
    A correct example: exclude core dumps (files named core) wherever they exist:
 
-    --findGeneralOps='( -type f -a -name core ) -o'
+    <b>--findGeneralOps</b>='( -type f -a -name core ) -o'
 
    Note 1: GNU find supports the -ipath and -iname operands for case-insensitive
    matching of paths and names. They fulfill the above described "both or none"
@@ -848,12 +848,12 @@ Further, the internal logic of Zaloha imposes the following limitations:
    must be excluded too. Notes 1 and 2 from previous bullet hold too.
    A correct example: exclude subdirectories lost+found wherever they exist:
 
-    --findGeneralOps='( -type d -a -name lost+found ) -prune -o'
+    <b>--findGeneralOps</b>='( -type d -a -name lost+found ) -prune -o'
 
    If you do not care if an object is a file or a directory, you can abbreviate:
 
-    --findGeneralOps='-name unwanted_name -prune -o'
-    --findGeneralOps='-path unwanted_path -prune -o'
+    <b>--findGeneralOps</b>='-name unwanted_name -prune -o'
+    <b>--findGeneralOps</b>='-path unwanted_path -prune -o'
 
 *** CAUTION &lt;findSourceOps&gt; AND &lt;findGeneralOps&gt;: Zaloha does not validate if
 the described rules and limitations are indeed obeyed. Wrong &lt;findSourceOps&gt;
@@ -867,7 +867,7 @@ Troubleshooting
 If FIND operands do not work as expected, debug them using FIND alone.
 Let's assume, that this does not work as expected:
 
-    --findSourceOps='( -type f -a -name *.tmp ) -o'
+    <b>--findSourceOps</b>='( -type f -a -name *.tmp ) -o'
 
 The FIND command to debug this is:
 
@@ -902,11 +902,11 @@ Examples (for BASH for both single-quoted and double-quoted strings):
   * exclude all objects named Windows Security
   * exclude all objects named My "Secret" Things
 
-    --findSourceOps='-name "Windows Security" -prune -o'
-    --findSourceOps='-name "My ""Secret"" Things" -prune -o'
+    <b>--findSourceOps</b>='-name "Windows Security" -prune -o'
+    <b>--findSourceOps</b>='-name "My ""Secret"" Things" -prune -o'
 
-    --findSourceOps="-name \"Windows Security\" -prune -o"
-    --findSourceOps="-name \"My \"\"Secret\"\" Things\" -prune -o"
+    <b>--findSourceOps</b>="-name \"Windows Security\" -prune -o"
+    <b>--findSourceOps</b>="-name \"My \"\"Secret\"\" Things\" -prune -o"
 
 Interpretation of special characters by FIND itself
 ---------------------------------------------------
@@ -921,11 +921,11 @@ Examples (for BASH for both single-quoted and double-quoted strings):
   * exclude all objects whose names begin with abcd (i.e. FIND pattern abcd*)
   * exclude all objects named exactly mnop* (literally including the asterisk)
 
-    --findSourceOps='-name abcd* -prune -o'
-    --findSourceOps='-name mnop\* -prune -o'
+    <b>--findSourceOps</b>='-name abcd* -prune -o'
+    <b>--findSourceOps</b>='-name mnop\* -prune -o'
 
-    --findSourceOps="-name abcd* -prune -o"
-    --findSourceOps="-name mnop\\* -prune -o"
+    <b>--findSourceOps</b>="-name abcd* -prune -o"
+    <b>--findSourceOps</b>="-name mnop\\* -prune -o"
 
 The placeholder ///d/ for the start point directories
 -----------------------------------------------------
@@ -944,7 +944,7 @@ escaped (which relieves you from having to do it yourself).
 
 Example: exclude &lt;sourceDir&gt;/.git
 
-    --findSourceOps="-path ///d/.git -prune -o"
+    <b>--findSourceOps</b>="-path ///d/.git -prune -o"
 
 Internally defined default for &lt;findGeneralOps&gt;
 -----------------------------------------------
@@ -964,16 +964,16 @@ Internally defined default for &lt;findGeneralOps&gt;
 
 To replace this internal default with own &lt;findGeneralOps&gt;:
 
-    --findGeneralOps=&lt;your replacement&gt;
+    <b>--findGeneralOps</b>=&lt;your replacement&gt;
 
 To switch off this internal default:
 
-    --findGeneralOps=
+    <b>--findGeneralOps</b>=
 
 To extend (= combine, not replace) the internal default by an own extension
 (note the plus (+) sign):
 
-    --findGeneralOps=+&lt;your extension&gt;
+    <b>--findGeneralOps</b>=+&lt;your extension&gt;
 
 If several <b>--findGeneralOps</b> options are passed in, the plus (+) sign mentioned
 above should be passed in only with the first instance, not with the second,
@@ -1247,7 +1247,7 @@ Corner case <b>REV.NEW</b> with namespace on &lt;sourceDir&gt; needed for <b>REV
 actions is occupied by objects of conflicting types: The files in &lt;backupDir&gt;
 will not get reverse-synchronized to &lt;sourceDir&gt;, but removed. As these files
 must be newer than the last run of Zaloha (except when the <b>--revNewAll</b> option
-is used), the actions will be <b>REMOVE.!.</b>
+is used), the actions will be <b>REMOVE.!</b>.
 
 [SCC_CONFL_02]
 Corner case <b>--detectHLinksS</b> with objects in &lt;backupDir&gt; under the same paths
